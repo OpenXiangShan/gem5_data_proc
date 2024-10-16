@@ -24,7 +24,8 @@ gem5_coarse_rename_map = {
     # Frontend
     'IcacheStall': 'MergeFrontend',
     'ITlbStall': 'MergeFrontend',
-    'FragStall': 'MergeFrontend',
+    'FetchFragStall': 'MergeFrontend',
+    'OtherFragStall': 'MergeFrontend',
 
     # BP
     'BpStall': 'MergeBadSpec',
@@ -195,9 +196,11 @@ xs_fine_grain_rename_map = {
 def rename_with_map(df: pd.DataFrame, rename_map):
     to_drops = []
     sorted_cols = []
+    columns_to_keep = ['ipc', 'point', 'bmk', 'workload']  # 需要保留的列
+
     print(df.columns)
     for col in df.columns:
-        if col not in rename_map:
+        if col not in rename_map and col not in columns_to_keep:
             to_drops.append(col)
     for k in rename_map:
         if rename_map[k] is not None:
@@ -211,8 +214,8 @@ def rename_with_map(df: pd.DataFrame, rename_map):
             else:
                 df[rename_map[k]] = df[k]
                 sorted_cols.append(rename_map[k])
-
-            to_drops.append(k)
+            if k not in columns_to_keep:
+                to_drops.append(k)
         else:
             sorted_cols.append(k)
     print(f'Dropping {to_drops}')
