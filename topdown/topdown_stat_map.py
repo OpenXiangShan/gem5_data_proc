@@ -24,7 +24,8 @@ gem5_coarse_rename_map = {
     # Frontend
     'IcacheStall': 'MergeFrontend',
     'ITlbStall': 'MergeFrontend',
-    'FragStall': 'MergeFrontend',
+    'FetchFragStall': 'MergeFrontend',
+    'OtherFragStall': 'MergeFrontend',
 
     # BP
     'BpStall': 'MergeBadSpec',
