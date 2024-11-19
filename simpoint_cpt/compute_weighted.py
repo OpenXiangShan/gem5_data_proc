@@ -41,16 +41,16 @@ def proc_input(wl_df: pd.DataFrame, js: dict, workload: str):
     try:
         vec_weight = vec_weight.loc[wl_df['point']]
     except KeyError:
-        print(wl_df)
+        # Find out which points are present in vec_weight
+        valid_points = set(wl_df['point']).intersection(set(vec_weight.index))
+        # Only the rows with corresponding weights are kept
+        wl_df = wl_df[wl_df['point'].isin(valid_points)]
+        vec_weight = vec_weight.loc[wl_df['point']]
         if 0 in wl_df['point'].values:
             print(f"Ignore checkpoint 0 for {workload}")
             wl_df = wl_df[wl_df['point'] != 0]
-            vec_weight = vec_weight.loc[wl_df['point']]
-        else:
-            print(f'KeyError: {workload}')
-            print(vec_weight)
-            print(wl_df['point'])
-            raise KeyError
+            vec_weight = vec_weight[vec_weight.index != 0]
+
     print(vec_weight.shape)
     # make their sum equals 1.0
     vec_weight.columns = ['weight']
