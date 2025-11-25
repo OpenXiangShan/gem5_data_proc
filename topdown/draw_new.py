@@ -56,18 +56,21 @@ def preprocess_for_percentage(df):
     df.insert(0, 'base', 20000000)
     return df
 
-def calculate_percentages(df):
+def calculate_percentages(df, level):
     """计算topdown百分比
     使用 base + frontend + backend + badspec 作为总和基准
     """
-    df = preprocess_for_percentage(df)
+    if level == 1:
+        df = preprocess_for_percentage(df)
     
     # 获取所有列的总和作为基准
-    total = df['base'] + df['Frontend'].fillna(0) + df['Backend'].fillna(0) + df['BadSpec'].fillna(0)
+    total = df.sum(axis=1)
+    # total = df['base'] + df['Frontend'].fillna(0) + df['Backend'].fillna(0) + df['BadSpec'].fillna(0)
     
     # 计算每列的百分比
     percentages = pd.DataFrame()
-    percentages['base_per'] = df['base'] / total
+    if level == 1:
+        percentages['base_per'] = df['base'] / total
     
     # 计算其他列的百分比
     for col in df.columns:
@@ -76,15 +79,15 @@ def calculate_percentages(df):
     
     return percentages * 100
 
-def print_percentage_analysis(df1, df2=None, tag1=None, tag2=None):
+def print_percentage_analysis(df1, df2=None, tag1=None, tag2=None, level=1):
     """打印百分比分析结果"""
     print(f"\n{tag1} 百分比:")
-    df1_percent = calculate_percentages(df1)
+    df1_percent = calculate_percentages(df1, level)
     print(df1_percent.apply(lambda x: round(x, 2)))  # 只保留2位小数
     
     if df2 is not None and tag2 is not None:
         print(f"\n{tag2} 百分比:")
-        df2_percent = calculate_percentages(df2)
+        df2_percent = calculate_percentages(df2, level)
         print(df2_percent.apply(lambda x: round(x, 2)))  # 只保留2位小数
         
         print(f"\n差异 ({tag2} - {tag1}):")
@@ -95,7 +98,11 @@ def plot_comparison(df1, df2, tag1, tag2, category, level, output_filename):
     """绘制对比图表"""
     colors = plt.cm.tab20.colors + plt.cm.tab20b.colors + plt.cm.tab20c.colors
     hatches = [None, '//', '|', '\\', '+', 'x', 'o', 'O', '.', '*'] * 3
-    
+
+    if level == 1:
+        df1 = preprocess_for_percentage(df1)
+        df2 = preprocess_for_percentage(df2) if df2 is not None else None
+
     all_columns = list(df1.columns)
     if df2 is not None:
         all_columns.extend([col for col in df2.columns if col not in df1.columns])
@@ -158,7 +165,7 @@ def draw(args):
     
     # 如果需要显示百分比，计算并显示
     if args.percent:
-        print_percentage_analysis(df1, df2, args.tag1, args.tag2)
+        print_percentage_analysis(df1, df2, args.tag1, args.tag2, args.level)
     
     # 绘制图表，存储在figure目录下
     output_filename = f"figure/{args.tag1}.png" if df2 is None else f"figure/{args.tag1}_vs_{args.tag2}.png"
