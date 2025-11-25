@@ -5,6 +5,22 @@ brief_targets = {
     'ipc': '(?:cpus?|switch_cpus_1)\.ipc',
     'Insts': '(?:cpus?|switch_cpus_1)\.committedInsts',
     'Cycles': 'cpus?\.numCycles',
+
+    # 'baseRetiring': '(?:cpus?|switch_cpus_1)\.baseRetiring',
+    # 'frontendBound': '(?:cpus?|switch_cpus_1)\.frontendBound',
+    # 'frontendLatencyBound': '(?:cpus?|switch_cpus_1)\.frontendLatencyBound',
+    # 'frontendBandwidthBound': '(?:cpus?|switch_cpus_1)\.frontendBandwidthBound',
+    # 'badSpecBound': '(?:cpus?|switch_cpus_1)\.badSpecBound',
+    # 'branchMissPrediction': '(?:cpus?|switch_cpus_1)\.branchMissPrediction',
+    # 'machineClears': '(?:cpus?|switch_cpus_1)\.machineClears',
+    # 'backendBound': '(?:cpus?|switch_cpus_1)\.backendBound',
+    # 'coreBound': '(?:cpus?|switch_cpus_1)\.coreBound',
+    # 'memoryBound': '(?:cpus?|switch_cpus_1)\.memoryBound',
+    # 'l1Bound': '(?:cpus?|switch_cpus_1)\.l1Bound',
+    # 'l2Bound': '(?:cpus?|switch_cpus_1)\.l2Bound',
+    # 'l3Bound': '(?:cpus?|switch_cpus_1)\.l3Bound',
+    # 'memBound': '(?:cpus?|switch_cpus_1)\.memBound',
+    # 'storeBound': '(?:cpus?|switch_cpus_1)\.storeBound',
 }
 
 ipc_target = {
@@ -36,6 +52,21 @@ cache_targets = {
     
     'dcache_miss': 'cpu\.dcache\.demandMisses::total',
     # 'dcache_miss_pref': 'cpu\.dcache\.demandMisses::cpu.dcache.prefetcher',
+
+    'itlb_acc': 'cpu\.mmu\.itb\.accesses',
+    'itlb_miss': 'cpu\.mmu\.itb\.misses',
+
+    'dtlb_acc': 'cpu\.mmu\.dtb\.accesses',
+    'dtlb_miss': 'cpu\.mmu\.dtb\.misses',
+}
+
+tlb_targets = {
+    # system.cpu.mmu.itb.accesses 
+    'itlb_acc': 'cpu\.mmu\.itb\.accesses',
+    'itlb_miss': 'cpu\.mmu\.itb\.misses',
+
+    'dtlb_acc': 'cpu\.mmu\.dtb\.accesses',
+    'dtlb_miss': 'cpu\.mmu\.dtb\.misses',
 }
 
 si_targets = {
@@ -122,7 +153,7 @@ def add_topdown_targets():
 add_topdown_targets()
 
 warmup_targets = {
-    'branchMispredicts': '(?:cpus?|switch_cpus_1)\.commit\.branchMispredicts',
+    'branchMispredicts': '(?:cpus?|switch_cpus_1)\.iew\.branchMispredicts',
     'branches': '(?:cpus?|switch_cpus_1)\.commit\.branches',
     'l3_miss': 'l3\.demandMisses::total',
     'l2_miss': 'l2\.demandMisses::total',
@@ -131,18 +162,32 @@ warmup_targets = {
 }
 
 branch_targets = {
-    'branchMispredicts': '(?:cpus?|switch_cpus_1)\.commit\.branchMispredicts',
+    'branchMispredicts': '(?:cpus?|switch_cpus_1)\.iew\.branchMispredicts',
     'branches': '(?:cpus?|switch_cpus_1)\.commit\.branches',
     'indirectMispred': '(?:cpus?|switch_cpus_1)\.branchPred\.ftb\.indirectPredCorrect',
+    # 'fsqMean': '(?:cpus?|switch_cpus_1)\.branchPred\.commitFsqEntryHasInsts::mean',
+    # 'fetchMean': '(?:cpus?|switch_cpus_1)\.fetch\.nisnDist::mean',
+    # 'fetchNum0': '(?:cpus?|switch_cpus_1)\.fetch\.nisnDist::0',
+    # 'fetchNumTotal': '(?:cpus?|switch_cpus_1)\.fetch\.nisnDist::total',
+    # 'ICacheStall': '(?:cpus?|switch_cpus_1)\.fetch\.icacheStallCycles',
+    # 'FullHungry': '(?:cpus?|switch_cpus_1)\.branchPred\.fsqFullFetchHungry',
+    # 'commitFsqEntryHasInsts': '(?:cpus?|switch_cpus_1)\.branchPred\.commitFsqEntryHasInsts::mean',
+    # 'SizeLimit': '(?:cpus?|switch_cpus_1)\.branchPred\.ftqEndReasonDist::size_limit',
+    # 'decodeStall': '(?:cpus?|switch_cpus_1)\.fetch\.decodeStallRate',
+
+
+    'updateMispred': 'system\.cpu\.branchPred\.tage\.updateMispred',
+
+    
 }
 
 
 xs_l3_prefix = "\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.l3cacheOpt"
 
 if 'XS_CORE_ID' not in os.environ or int(os.environ['XS_CORE_ID']) == 0:
-    xs_core_prefix = "\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core"
-    xs_ctrl_block_prefix = "\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.(?:backend\.)?inner.ctrlBlock"
-    xs_l2_prefix = "\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.l2top\.inner.l2cache"
+    xs_core_prefix = "\[PERF \]\[time=\s+\d+\] SimTop\.cpu\.l_soc\.core_with_l2\.core"
+    xs_ctrl_block_prefix = "\[PERF \]\[time=\s+\d+\] SimTop\.cpu\.l_soc\.core_with_l2\.core\.(?:backend\.)?inner.ctrlBlock"
+    xs_l2_prefix = "\[PERF \]\[time=\s+\d+\] SimTop\.cpu\.l_soc\.core_with_l2\.l2top\.inner.l2cache"
 elif int(os.environ['XS_CORE_ID']) > 0:
     cur_core_id = int(os.environ['XS_CORE_ID'])
     xs_core_prefix = f"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2_{cur_core_id}\.core"
@@ -155,8 +200,8 @@ xs_pf_targets = {
 }
 
 xs_ipc_target = {
-    "commitInstr": fr"{xs_ctrl_block_prefix}.rob: commitInstr,\s+(\d+)",
-    "total_cycles": fr"{xs_ctrl_block_prefix}.rob: clock_cycle,\s+(\d+)",
+    "commitInstr": r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.rob\.\w+@\w+: commitInstr,\s+(\d+)",
+    "total_cycles": r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.rob\.\w+@\w+: clock_cycle,\s+(\d+)",
 }
 
 xs_mem_dep_targets = {
@@ -240,10 +285,11 @@ xs_topdown_targets_deprecated = {
 
 
 xs_branch_targets = {
-    'BpInstr':  r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpInstr,\s+(\d+)",
-    'BpBWrong': r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpBWrong,\s+(\d+)",
-    'BpJWrong': r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpJWrong,\s+(\d+)",
-    'BpIWrong': r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpIWrong,\s+(\d+)",
+    'BpInstr': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_total_branch,\s+(\d+)",
+    'BpBWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_conditional_mispredict,\s+(\d+)",
+    'BpIWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_indirect_mispredict,\s+(\d+)",
+    'BpCallWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_call_mispredict,\s+(\d+)",
+    'BpRetWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_return_mispredict,\s+(\d+)",
     # 'BpBInstr': r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpBInstr,\s+(\d+)",
     # 'BpRight':  r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpRight,\s+(\d+)",
     # 'BpWrong':  r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpWrong,\s+(\d+)",

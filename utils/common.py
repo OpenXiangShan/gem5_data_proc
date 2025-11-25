@@ -345,7 +345,7 @@ def xs_get_stats(stat_file: str, targets: list,
     not_found_keys = desired_keys - obtained_keys
     print("Obtained:", obtained_keys)
     print("Not found:", not_found_keys)
-    # assert len(not_found_keys) == 0
+    assert len(not_found_keys) == 0
     if len(not_found_keys) > 0:
         print(f"warning: in {stat_file} not found the following stats:")
         print(f"missing stats: {not_found_keys}")
@@ -545,7 +545,7 @@ def xs_add_pf_accuracy(d: dict) -> None:
     d['SMS L2 Useful ratio'] = d.get('sms_useful', 0) / pht_l2_pf_total
 
 def xs_add_branch_mispred(d: dict) -> None:
-    mispred = float(d['BpBWrong']) + float(d['BpJWrong']) + float(d['BpIWrong'])
+    mispred = float(d['BpBWrong']) + float(d['BpIWrong']) + float(d['BpCallWrong']) + float(d['BpRetWrong'])
     branches = float(d['BpInstr'])
     d['mispredict rate'] = mispred / branches
     d['total branch MPKI'] = mispred / float(d['commitInstr']) * 1000
