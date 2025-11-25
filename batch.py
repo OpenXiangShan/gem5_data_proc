@@ -135,6 +135,9 @@ def main():
     parser.add_argument('--old-xs', action='store_true',
                         help='handle old xs stats'
                        )
+    parser.add_argument('--nix', action='store_true',
+                        help='handle nix stats'
+                       )
 
     parser.add_argument('--eval-stat', action='store',
             help='evaled stats',
@@ -262,7 +265,10 @@ def main():
             if len(segments):
                 d['point'] = segments[-1]
                 d['workload'] = '_'.join(segments[:-1])
-                d['bmk'] = segments[0]
+                if opt.nix: # nix path is <num>_<benchmark>_checkpoint_<point>
+                    d['bmk'] = segments[1]
+                else:
+                    d['bmk'] = segments[0]
 
             # if opt.packet:
             #     c.add_packet(d)

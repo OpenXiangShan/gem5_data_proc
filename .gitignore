@@ -106,3 +106,5 @@ pdf
 /outputs
 class_map_min.txt
 /expri_results
+*.html
+core_pipeline/

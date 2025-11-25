@@ -27,6 +27,9 @@ def proc_input(wl_df: pd.DataFrame, js: dict, workload: str):
     wl_df = wl_df.sort_values(by=['point'])
     # We also sort the vec_weight by point
     print('Processing bmk input', workload)
+    # workload delete the last underscore and the last part
+    if args.nix:    # nix path is <num>_<benchmark>_checkpoint
+        workload = '_'.join(workload.split('_')[:-1])
     wl_js = dict(js[workload])
     if 'ipc' in wl_df.columns:
         wl_df['cpi'] = 1.0/wl_df['ipc']
@@ -112,6 +115,15 @@ def proc_bmk(bmk_df: pd.DataFrame, js: dict, bmk: str):
 def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
     spec_v = args.spec_version
     df = pd.read_csv(csv_path, index_col=0)
+    
+    # Fix column order at source - KISS principle
+    from utils.target_stats import brief_targets
+    preferred_order = list(brief_targets.keys())
+    if 'cpi' in df.columns and 'Cycles' in preferred_order:
+        preferred_order.insert(preferred_order.index('Cycles') + 1, 'cpi')
+    existing_cols = [col for col in preferred_order if col in df.columns]
+    other_cols = [col for col in df.columns if col not in existing_cols]
+    df = df.reindex(columns=existing_cols + sorted(other_cols))
     bmks = df['bmk'].unique()
     with open(js_path, 'r') as f:
         js = json.load(f)
@@ -198,17 +210,17 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
             if not args.fp_only:
                 print(f'================ Int =================')
                 print(intdf)
-                print('Estimated Int score per GHz:', geometric_mean(intdf['score']))
-                print(f'Estimated Int score @ {clock_rate/(10**9)}GHz:', geometric_mean(intdf['score'])*(clock_rate/(10**9)))
+                print('Estimated Int GHz:', geometric_mean(intdf['score']))
+                print(f'Estimated Int {clock_rate/(10**9)}GHz:', geometric_mean(intdf['score'])*(clock_rate/(10**9)))
             if not args.int_only:
                 print(f'================ FP =================')
                 print(fpdf)
-                print('Estimated FP score per GHz:', geometric_mean(fpdf['score']))
-                print(f'Estimated FP score @ {clock_rate/(10**9)}GHz:', geometric_mean(fpdf['score'])*(clock_rate/(10**9)))
+                print('Estimated FP GHz:', geometric_mean(fpdf['score']))
+                print(f'Estimated FP {clock_rate/(10**9)}GHz:', geometric_mean(fpdf['score'])*(clock_rate/(10**9)))
             if not args.int_only and not args.fp_only:
                 print(f'================ Overall =================')
-                print('Estimated overall score per GHz:', score.loc['mean','score'])
-                print(f'Estimated overall score @ {clock_rate/(10**9)}GHz:', score.loc['mean','score']*(clock_rate/(10**9)))
+                print('Estimated overall GHz:', score.loc['mean','score'])
+                print(f'Estimated overall {clock_rate/(10**9)}GHz:', score.loc['mean','score']*(clock_rate/(10**9)))
             if args.score is not None:
                 score.to_csv(args.score)
         except:
@@ -240,6 +252,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--clock', action='store', required=False, default=3, help='simulation clock rate(GHz)')
     parser.add_argument('-v', '--spec-version', action='store', required=False, default='06',
                         help='spec version, default is 06')
+    parser.add_argument('-n', '--nix', action='store_true', required=False, help='handle nix stats')
     args = parser.parse_args()
     clock_rate = float(args.clock) * 10**9
     if args.score:
