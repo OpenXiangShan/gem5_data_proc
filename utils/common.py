@@ -522,12 +522,11 @@ def add_overall_qos(hpt: str, lpt: str, d: dict) -> None:
 def add_branch_mispred(d: dict) -> None:
     branches = float(d['branches'])
     mispred = float(d.get('branchMispredicts', 0.0))
-    ind_mispred = float(d.get('indirectMispred', 0.0))
+    cond_mispred = float(d.get('condMispredicts', 0.0))
     d['mispredict rate'] = mispred / branches
     print('Commit instr', d['Insts'], mispred)
     d['total branch MPKI'] = mispred / float(d['Insts']) * 1000
-    d['indirect branch MPKI'] = ind_mispred / float(d['Insts']) * 1000
-    d['direct branch MPKI'] = d['total branch MPKI'] - d['indirect branch MPKI']
+    d['cond branch MPKI'] = cond_mispred / float(d['Insts']) * 1000
     # d['return MPKI'] = float(d['RASIncorrect']) / float(d['Insts']) * 1000
 
 def add_mem_bw(d: dict) -> None:
@@ -549,7 +548,7 @@ def xs_add_branch_mispred(d: dict) -> None:
     branches = float(d['BpInstr'])
     d['mispredict rate'] = mispred / branches
     d['total branch MPKI'] = mispred / float(d['commitInstr']) * 1000
-    # d['indirect branch MPKI'] = ind_mispred / float(d['Insts']) * 1000
+    d['cond branch MPKI'] = float(d['BpBWrong']) / float(d['commitInstr']) * 1000
     # d['direct branch MPKI'] = d['total branch MPKI'] - d['indirect branch MPKI']
     # d['return MPKI'] = float(d['RASIncorrect']) / float(d['Insts']) * 1000
 

@@ -164,7 +164,11 @@ warmup_targets = {
 branch_targets = {
     'branchMispredicts': '(?:cpus?|switch_cpus_1)\.iew\.branchMispredicts',
     'branches': '(?:cpus?|switch_cpus_1)\.commit\.branches',
-    'indirectMispred': '(?:cpus?|switch_cpus_1)\.branchPred\.ftb\.indirectPredCorrect',
+    'condMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:cond_branch',    # resolve stats
+    # 'condMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:cond_branch',         # commit stats
+    'uncondMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.uncondMiss',
+    'returnMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.returnMiss',
+    'otherMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.otherMiss',
     # 'fsqMean': '(?:cpus?|switch_cpus_1)\.branchPred\.commitFsqEntryHasInsts::mean',
     # 'fetchMean': '(?:cpus?|switch_cpus_1)\.fetch\.nisnDist::mean',
     # 'fetchNum0': '(?:cpus?|switch_cpus_1)\.fetch\.nisnDist::0',
@@ -175,6 +179,8 @@ branch_targets = {
     # 'SizeLimit': '(?:cpus?|switch_cpus_1)\.branchPred\.ftqEndReasonDist::size_limit',
     # 'decodeStall': '(?:cpus?|switch_cpus_1)\.fetch\.decodeStallRate',
 
+    # cpu.branchPred.tage.updateBankConflict
+    'updateBankConflict': 'system\.cpu\.branchPred\.tage\.updateBankConflict',
 
     'updateMispred': 'system\.cpu\.branchPred\.tage\.updateMispred',
 
