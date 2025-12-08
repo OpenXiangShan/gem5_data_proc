@@ -164,8 +164,13 @@ warmup_targets = {
 branch_targets = {
     'branchMispredicts': '(?:cpus?|switch_cpus_1)\.iew\.branchMispredicts',
     'branches': '(?:cpus?|switch_cpus_1)\.commit\.branches',
-    'condMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:cond_branch',    # resolve stats
+    'BpBWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:cond_branch',    # resolve stats
+    'BpIWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:indirect_jump',
+    'BpCallWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:indirect_call',
+    'BpRetWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:return',
+    'BpJWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:direct_jump',
     # 'condMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:cond_branch',         # commit stats
+    'condMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.condMiss',
     'uncondMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.uncondMiss',
     'returnMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.returnMiss',
     'otherMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.otherMiss',
