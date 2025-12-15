@@ -180,16 +180,18 @@ branch_targets = {
     # 'fetchNumTotal': '(?:cpus?|switch_cpus_1)\.fetch\.nisnDist::total',
     # 'ICacheStall': '(?:cpus?|switch_cpus_1)\.fetch\.icacheStallCycles',
     # 'FullHungry': '(?:cpus?|switch_cpus_1)\.branchPred\.fsqFullFetchHungry',
-    # 'commitFsqEntryHasInsts': '(?:cpus?|switch_cpus_1)\.branchPred\.commitFsqEntryHasInsts::mean',
+    'commitFsqEntryHasInsts': '(?:cpus?|switch_cpus_1)\.branchPred\.commitFsqEntryHasInsts::mean',
     # 'SizeLimit': '(?:cpus?|switch_cpus_1)\.branchPred\.ftqEndReasonDist::size_limit',
     # 'decodeStall': '(?:cpus?|switch_cpus_1)\.fetch\.decodeStallRate',
 
-    # cpu.branchPred.tage.updateBankConflict
-    'updateBankConflict': 'system\.cpu\.branchPred\.tage\.updateBankConflict',
-
     'updateMispred': 'system\.cpu\.branchPred\.tage\.updateMispred',
 
-    
+    #branchPred.predictionBlockedForUpdate
+    'predictionBlocked': 'system\.cpu\.branchPred\.predictionBlockedForUpdate',
+    # branchPred.tage.updateBankConflict
+    'updateBankConflict': 'system\.cpu\.branchPred\.tage\.updateBankConflict',   
+    # resolveQueueFullEvents
+    'resolveQueueFull': 'system\.cpu\.fetch\.resolveQueueFullEvents',
 }
 
 
@@ -296,22 +298,16 @@ xs_topdown_targets_deprecated = {
 
 
 xs_branch_targets = {
-    'BpInstr': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_total_branch,\s+(\d+)",
-    'BpBWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_conditional_mispredict,\s+(\d+)",
-    'BpIWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_indirect_mispredict,\s+(\d+)",
-    'BpCallWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_call_mispredict,\s+(\d+)",
-    'BpRetWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_return_mispredict,\s+(\d+)",
-    # 'BpBInstr': r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpBInstr,\s+(\d+)",
-    # 'BpRight':  r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpRight,\s+(\d+)",
-    # 'BpWrong':  r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpWrong,\s+(\d+)",
-    # 'BpBRight': r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpBRight,\s+(\d+)",
-    # 'BpJRight': r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpJRight,\s+(\d+)",
-    # 'BpIRight': r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpIRight,\s+(\d+)",
-    # 'BpCRight': r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpCRight,\s+(\d+)",
-    # 'BpCWrong': r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpCWrong,\s+(\d+)",
-    # 'BpRRight': r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpRRight,\s+(\d+)",
-    # 'BpRWrong': r"\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.core_with_l2\.core\.frontend\.ftq: BpRWrong,\s+(\d+)",
-
+    'BpInstr': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_branch_total,\s+(\d+)",
+    'BpBWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_mispredict_conditional,\s+(\d+)",
+    'BpIWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_mispredict_indirect,\s+(\d+)",
+    'BpCallWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_mispredict_call,\s+(\d+)",
+    # xiangshan.frontend.bpu.Bpu@272b34c4: train_return_mispredict, 
+    'BpRetWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_mispredict_return,\s+(\d+)",
+    # xiangshan.frontend.ftq.ResolveQueue@59887974: resolveQueueFull,
+    # 'resolveQueueFull':  r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.ftq\.ResolveQueue\@\w+: resolveQueueFull,\s+(\d+)",
+    # xiangshan.frontend.bpu.tage.Tage@2c71b5bd: read_conflict,
+    # 'updateBankConflict': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.tage\.Tage\@\w+: read_conflict,\s+(\d+)"
 }
 
 xs_cache_targets_22_04_nanhu = {
