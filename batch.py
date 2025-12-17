@@ -126,6 +126,9 @@ def main():
     parser.add_argument('--topdown-raw', action='store_true',
                         help='handle topdown stats but dont post process'
                        )
+    parser.add_argument('-t1', '--topdown-intel', action='store_true',
+                        help='handle intel topdown stats'   
+                        )
     parser.add_argument('-X', '--xiangshan', action='store_true',
                         help='handle XiangShan stats'
                        )
@@ -219,6 +222,9 @@ def main():
 
                 if opt.topdown:
                     targets = {**xs_topdown_targets, **targets}
+                
+                if opt.topdown_intel:
+                    targets = {**xs_topdown_intel_targets, **targets}
 
                 add_eval_targets(opt, targets)
 
@@ -233,6 +239,8 @@ def main():
                     targets = {**warmup_targets, **targets}
                 if opt.topdown:
                     targets = {**topdown_targets, **targets}
+                if opt.topdown_intel:
+                    targets = {**topdown_intel_targets, **targets}
 
                 add_eval_targets(opt, targets)
 

@@ -194,6 +194,23 @@ branch_targets = {
     'resolveQueueFull': 'system\.cpu\.fetch\.resolveQueueFullEvents',
 }
 
+topdown_intel_targets = {
+    # "InstRetired": "system\.cpu\.committedInsts",
+    'InstSpec': "system\.cpu\.iew\.dispatchedInsts",
+    # "CPUCycles": "system\.cpu\.numCycles",
+    'FetchBubble': "system\.cpu\.fetch\.fetchBubbles",
+    'FetchBubbleEqMax': "system\.cpu\.fetch\.fetchBubbles_max",
+    'BrMisPred': "system\.cpu\.iew\.branchMispredicts",
+    'TotalSquash': "system\.cpu\.commit\.totalSquash",
+    'RecoveryBubble': "system\.cpu\.commit\.recovery_bubble",
+    'ExecStallCycle': "system\.cpu\.scheduler\.exec_stall_cycle",
+    'MemStallAnyLoad': "system\.cpu\.scheduler\.memstall_any_load",
+    'MemStallStore': "system\.cpu\.scheduler\.memstall_any_store",
+    'MemStallL1Miss': "system\.cpu\.scheduler\.memstall_l1miss",
+    'MemStallL2Miss': "system\.cpu\.scheduler\.memstall_l2miss",
+    'MemStallL3Miss': "system\.cpu\.scheduler\.memstall_l3miss",
+}
+
 
 xs_l3_prefix = "\[PERF \]\[time=\s+\d+\] SimTop\.l_soc\.l3cacheOpt"
 
@@ -294,6 +311,24 @@ xs_topdown_targets_deprecated = {
     "robFlush_bubble_cycles": fr"{xs_core_prefix}ctrlBlock: robFlush_bubble_cycles,\s+(\d+)",
     "ldReplay_bubble_cycles": fr"{xs_core_prefix}ctrlBlock: ldReplay_bubble_cycles,\s+(\d+)",
     "ifu2id_allNO_cycle": fr"{xs_core_prefix}ctrlBlock.decode: ifu2id_allNO_cycle,\s+(\d+)",
+}
+
+xs_topdown_intel_targets = {
+    # "InstRetired": r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.rob\.\w+@\w+: commitInstr,\s+(\d+)",
+    'InstSpec': r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.decode\.DecodeStage\@\w+: inst_spec,\s+(\d+)",
+    # "CPUCycles": r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.rob\.\w+@\w+: clock_cycle,\s+(\d+)",
+    'FetchBubble': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.ibuffer\.IBuffer\@\w+: if_fetch_bubble,\s+(\d+)",
+    'FetchBubbleEqMax': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.ibuffer\.IBuffer\@\w+: if_fetch_bubble_eq_max,\s+(\d+)",
+    # xiangshan.frontend.FrontendInlinedImp@14f04e7d: squashCycles_bpWrong_redirect
+    'BrMisPred': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.FrontendInlinedImp\@\w+: squashCycles_bpWrong_redirect,\s+(\d+)",
+    # 'TotalFlush': 
+    'RecoveryBubble': r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.decode\.DecodeStage\@\w+: recovery_bubble,\s+(\d+)",
+    'ExecStallCycle': r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.TopDownGen\@\w+: exec_stall_cycle,\s+(\d+)",
+    'MemStallAnyLoad': r"\[PERF \]\[time=\s+\d+\] xiangshan\.mem\.VirtualLoadQueue\@\w+: mem_stall_anyload,\s+(\d+)",
+    'MemStallStore': r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.TopDownGen\@\w+: mem_stall_store,\s+(\d+)",
+    'MemStallL1Miss': r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.TopDownGen\@\w+: mem_stall_l1miss,\s+(\d+)",
+    'MemStallL2Miss': r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.TopDownGen\@\w+: mem_stall_l2miss,\s+(\d+)",
+    'MemStallL3Miss': r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.TopDownGen\@\w+: mem_stall_l3miss,\s+(\d+)",
 }
 
 

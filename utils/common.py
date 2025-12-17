@@ -523,10 +523,10 @@ def add_branch_mispred(d: dict) -> None:
     branches = float(d['branches'])
     mispred = float(d.get('branchMispredicts', 0.0))
     cond_mispred = float(d.get('condMispredicts', 0.0))
-    d['mispredict rate'] = mispred / branches
+    d['mispredict_rate'] = mispred / branches
     print('Commit instr', d['Insts'], mispred)
-    d['total branch MPKI'] = mispred / float(d['Insts']) * 1000
-    d['cond branch MPKI'] = cond_mispred / float(d['Insts']) * 1000
+    d['total_branch_MPKI'] = mispred / float(d['Insts']) * 1000
+    d['cond_branch_MPKI'] = cond_mispred / float(d['Insts']) * 1000
     # d['return MPKI'] = float(d['RASIncorrect']) / float(d['Insts']) * 1000
 
 def add_mem_bw(d: dict) -> None:
