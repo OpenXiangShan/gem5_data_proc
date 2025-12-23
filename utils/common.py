@@ -304,6 +304,7 @@ def xs_get_stats(stat_file: str, targets: list,
             accumulate_table[k] = (p[1], [])
 
     stats = {}
+    commitInstr_count = 0  # Track how many times commitInstr appears
     mshr_latency_l2 = {}
     mshr_latency_l3 = {}
     mshr_latency_l1d = {}
@@ -320,6 +321,8 @@ def xs_get_stats(stat_file: str, targets: list,
                 if k in accumulate_table:
                     accumulate_table[k][1].append(to_num(m.group(1)))
                 else:
+                    if k == 'commitInstr':
+                        commitInstr_count += 1
                     stats[k] = to_num(m.group(1))
                 break
         if not matched_re_pattern:
@@ -345,6 +348,12 @@ def xs_get_stats(stat_file: str, targets: list,
     not_found_keys = desired_keys - obtained_keys
     print("Obtained:", obtained_keys)
     print("Not found:", not_found_keys)
+
+    # Check if both warmup and main simulation completed (should have 2 commitInstr entries)
+    if 'commitInstr' in patterns and commitInstr_count < 2:
+        print(f"warning: in {stat_file} commitInstr appears {commitInstr_count} time(s), expected 2 (warmup + main)")
+        return None
+
     assert len(not_found_keys) == 0
     if len(not_found_keys) > 0:
         print(f"warning: in {stat_file} not found the following stats:")
@@ -403,6 +412,13 @@ def gem5_get_stats(stat_file: str, targets: list,
     if not os.path.isfile(expu(stat_file)):
         print(stat_file)
     assert(os.path.isfile(expu(stat_file)))
+
+    # Check if both warmup and main simulation completed
+    with open(expu(stat_file)) as f:
+        stat_blocks = f.read().count('---------- Begin Simulation Statistics ----------')
+    if stat_blocks < 2:
+        print(f"warning: in {stat_file} found {stat_blocks} stat block(s), expected 2 (warmup + main)")
+        return None
 
     patterns = {}
 
@@ -546,9 +562,9 @@ def xs_add_pf_accuracy(d: dict) -> None:
 def xs_add_branch_mispred(d: dict) -> None:
     mispred = float(d['BpBWrong']) + float(d['BpIWrong']) + float(d['BpCallWrong']) + float(d['BpRetWrong'])
     branches = float(d['BpInstr'])
-    d['mispredict rate'] = mispred / branches
-    d['total branch MPKI'] = mispred / float(d['commitInstr']) * 1000
-    d['cond branch MPKI'] = float(d['BpBWrong']) / float(d['commitInstr']) * 1000
+    d['mispredict_rate'] = mispred / branches
+    d['total_branch_MPKI'] = mispred / float(d['commitInstr']) * 1000
+    d['cond_branch_MPKI'] = float(d['BpBWrong']) / float(d['commitInstr']) * 1000
     # d['direct branch MPKI'] = d['total branch MPKI'] - d['indirect branch MPKI']
     # d['return MPKI'] = float(d['RASIncorrect']) / float(d['Insts']) * 1000
 

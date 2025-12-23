@@ -247,7 +247,7 @@ def main():
                 d = c.gem5_get_stats(path, targets, re_targets=True)
 
             # TODO: test eval stats
-        if len(d):
+        if d and len(d):
             if opt.branch:
                 eval(f"c.{prefix}add_branch_mispred(d)")
             if opt.cache:
@@ -287,6 +287,9 @@ def main():
     _ = [p.start() for p in jobs]
     _ = [p.join() for p in jobs]
     print(all_bmk_dict)
+
+    # Filter out None values
+    all_bmk_dict = {k: v for k, v in all_bmk_dict.items() if v is not None}
 
     df = pd.DataFrame.from_dict(all_bmk_dict, orient='index')
 
