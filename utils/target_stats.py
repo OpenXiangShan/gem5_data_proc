@@ -168,7 +168,7 @@ branch_targets = {
     'BpIWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:indirect_jump',
     'BpCallWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:indirect_call',
     'BpRetWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:return',
-    'BpJWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:direct_jump',
+    # 'BpJWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:direct_jump',
     # 'condMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:cond_branch',         # commit stats
     'condMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.condMiss',
     'uncondMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.uncondMiss',
@@ -230,8 +230,8 @@ xs_pf_targets = {
 }
 
 xs_ipc_target = {
-    "commitInstr": r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.rob\.\w+@\w+: commitInstr,\s+(\d+)",
-    "total_cycles": r"\[PERF \]\[time=\s+\d+\] xiangshan\.backend\.rob\.\w+@\w+: clock_cycle,\s+(\d+)",
+    "commitInstr": r"\[PERF \]\[time=\s+\d+\] .*\.rob.*: commitInstr,\s+(\d+)",
+    "total_cycles": r"\[PERF \]\[time=\s+\d+\] .*\.rob.*: clock_cycle,\s+(\d+)",
 }
 
 xs_mem_dep_targets = {
@@ -333,16 +333,11 @@ xs_topdown_intel_targets = {
 
 
 xs_branch_targets = {
-    'BpInstr': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_branch_total,\s+(\d+)",
-    'BpBWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_mispredict_conditional,\s+(\d+)",
-    'BpIWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_mispredict_indirect,\s+(\d+)",
-    'BpCallWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_mispredict_call,\s+(\d+)",
-    # xiangshan.frontend.bpu.Bpu@272b34c4: train_return_mispredict, 
-    'BpRetWrong': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.\w+@\w+: train_mispredict_return,\s+(\d+)",
-    # xiangshan.frontend.ftq.ResolveQueue@59887974: resolveQueueFull,
-    # 'resolveQueueFull':  r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.ftq\.ResolveQueue\@\w+: resolveQueueFull,\s+(\d+)",
-    # xiangshan.frontend.bpu.tage.Tage@2c71b5bd: read_conflict,
-    # 'updateBankConflict': r"\[PERF \]\[time=\s+\d+\] xiangshan\.frontend\.bpu\.tage\.Tage\@\w+: read_conflict,\s+(\d+)"
+    'BpInstr': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: train_branch_total,\s+(\d+)",
+    'BpBWrong': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: train_mispredict_conditional,\s+(\d+)",
+    'BpIWrong': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: train_mispredict_(?:indirect|otherIndirect),\s+(\d+)",
+    'BpCallWrong': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: train_mispredict_call,\s+(\d+)",
+    'BpRetWrong': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: train_mispredict_return,\s+(\d+)",
 }
 
 xs_cache_targets_22_04_nanhu = {
