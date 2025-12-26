@@ -537,10 +537,9 @@ def add_overall_qos(hpt: str, lpt: str, d: dict) -> None:
 
 def add_branch_mispred(d: dict) -> None:
     branches = float(d['branches'])
-    mispred = float(d.get('branchMispredicts', 0.0))
-    cond_mispred = float(d.get('condMispredicts', 0.0))
+    mispred = float(d['BpAllWrong'])
+    cond_mispred = float(d['BpBWrong'])
     d['mispredict_rate'] = mispred / branches
-    print('Commit instr', d['Insts'], mispred)
     d['total_branch_MPKI'] = mispred / float(d['Insts']) * 1000
     d['cond_branch_MPKI'] = cond_mispred / float(d['Insts']) * 1000
     # d['return MPKI'] = float(d['RASIncorrect']) / float(d['Insts']) * 1000
@@ -560,7 +559,7 @@ def xs_add_pf_accuracy(d: dict) -> None:
     d['SMS L2 Useful ratio'] = d.get('sms_useful', 0) / pht_l2_pf_total
 
 def xs_add_branch_mispred(d: dict) -> None:
-    mispred = float(d['BpBWrong']) + float(d['BpIWrong']) + float(d['BpCallWrong']) + float(d['BpRetWrong'])
+    mispred = float(d['BpAllWrong'])
     branches = float(d['BpInstr'])
     d['mispredict_rate'] = mispred / branches
     d['total_branch_MPKI'] = mispred / float(d['commitInstr']) * 1000

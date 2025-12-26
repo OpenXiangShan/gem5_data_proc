@@ -162,18 +162,12 @@ warmup_targets = {
 }
 
 branch_targets = {
-    'branchMispredicts': '(?:cpus?|switch_cpus_1)\.iew\.branchMispredicts',
     'branches': '(?:cpus?|switch_cpus_1)\.commit\.branches',
-    'BpBWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:cond_branch',    # resolve stats
-    'BpIWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:indirect_jump',
-    'BpCallWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:indirect_call',
-    'BpRetWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:return',
-    # 'BpJWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:direct_jump',
-    # 'condMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:cond_branch',         # commit stats
-    'condMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.condMiss',
-    'uncondMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.uncondMiss',
-    'returnMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.returnMiss',
-    'otherMispredicts': '(?:cpus?|switch_cpus_1)\.branchPred\.otherMiss',
+    'BpAllWrong': '(?:cpus?|switch_cpus_1)\.commit\.branchMispredicts',
+    'BpBWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:cond_branch',    # resolve stats
+    'BpIWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:indirect_jump',
+    'BpCallWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:indirect_call',
+    'BpRetWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:return',
     # 'fsqMean': '(?:cpus?|switch_cpus_1)\.branchPred\.commitFsqEntryHasInsts::mean',
     # 'fetchMean': '(?:cpus?|switch_cpus_1)\.fetch\.nisnDist::mean',
     # 'fetchNum0': '(?:cpus?|switch_cpus_1)\.fetch\.nisnDist::0',
@@ -192,6 +186,8 @@ branch_targets = {
     'updateBankConflict': 'system\.cpu\.branchPred\.tage\.updateBankConflict',   
     # resolveQueueFullEvents
     'resolveQueueFull': 'system\.cpu\.fetch\.resolveQueueFullEvents',
+
+    'mbtbMisses': 'system\.cpu\.branchPred\.mbtb.updateMiss',
 }
 
 topdown_intel_targets = {
@@ -334,10 +330,15 @@ xs_topdown_intel_targets = {
 
 xs_branch_targets = {
     'BpInstr': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: train_branch_total,\s+(\d+)",
-    'BpBWrong': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: train_mispredict_conditional,\s+(\d+)",
-    'BpIWrong': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: train_mispredict_(?:indirect|otherIndirect),\s+(\d+)",
-    'BpCallWrong': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: train_mispredict_call,\s+(\d+)",
-    'BpRetWrong': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: train_mispredict_return,\s+(\d+)",
+    'BpAllWrong': r"\[PERF \]\[time=\s+\d+\] .*\.ftq.*: commit_branch_mispredicts,\s+(\d+)",
+    'BpBWrong': r"\[PERF \]\[time=\s+\d+\] .*\.ftq.*: commit_branch_mispredicts_type_conditional,\s+(\d+)",
+    'BpIWrong': r"\[PERF \]\[time=\s+\d+\] .*\.ftq.*: commit_branch_mispredicts_type_indirect,\s+(\d+)",
+    'BpCallWrong': r"\[PERF \]\[time=\s+\d+\] .*\.ftq.*: commit_branch_mispredicts_type_call,\s+(\d+)",
+    'BpRetWrong': r"\[PERF \]\[time=\s+\d+\] .*\.ftq.*: commit_branch_mispredicts_type_ret,\s+(\d+)",
+
+    'resolveQueueFull':  r"\[PERF \]\[time=\s+\d+\] .*\.ftq.*: resolveQueueFull,\s+(\d+)",
+    'updateBankConflict': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: read_conflict,\s+(\d+)",
+    't2_branch_mis_diff': r"\[PERF \]\[time=\s+\d+\] .*\.tage.*: t2_branch_0_mispredict_diff,\s+(\d+)"
 }
 
 xs_cache_targets_22_04_nanhu = {
