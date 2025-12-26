@@ -338,7 +338,7 @@ xs_branch_targets = {
 
     'resolveQueueFull':  r"\[PERF \]\[time=\s+\d+\] .*\.ftq.*: resolveQueueFull,\s+(\d+)",
     'updateBankConflict': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: read_conflict,\s+(\d+)",
-    't2_branch_mis_diff': r"\[PERF \]\[time=\s+\d+\] .*\.tage.*: t2_branch_0_mispredict_diff,\s+(\d+)"
+    # 't2_branch_mis_diff': r"\[PERF \]\[time=\s+\d+\] .*\.tage.*: t2_branch_0_mispredict_diff,\s+(\d+)"
 }
 
 xs_cache_targets_22_04_nanhu = {
