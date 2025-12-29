@@ -537,7 +537,7 @@ def add_overall_qos(hpt: str, lpt: str, d: dict) -> None:
 
 def add_branch_mispred(d: dict) -> None:
     branches = float(d['branches'])
-    mispred = float(d['BpAllWrong'])
+    mispred = float(d['BpBWrong']) + float(d['BpIWrong']) + float(d['BpCallWrong']) + float(d['BpRetWrong'])
     cond_mispred = float(d['BpBWrong'])
     d['mispredict_rate'] = mispred / branches
     d['total_branch_MPKI'] = mispred / float(d['Insts']) * 1000
