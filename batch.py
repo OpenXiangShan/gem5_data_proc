@@ -141,7 +141,9 @@ def main():
     parser.add_argument('--nix', action='store_true',
                         help='handle nix stats'
                        )
-
+    parser.add_argument('-T','--temp', action='store_true',
+                        help='print temp stats'
+                       )
     parser.add_argument('--eval-stat', action='store',
             help='evaled stats',
             )
@@ -225,6 +227,8 @@ def main():
                 
                 if opt.topdown_intel:
                     targets = {**xs_topdown_intel_targets, **targets}
+                if opt.temp:
+                    targets = {**xs_temp_targets, **targets}
 
                 add_eval_targets(opt, targets)
 
@@ -241,6 +245,8 @@ def main():
                     targets = {**topdown_targets, **targets}
                 if opt.topdown_intel:
                     targets = {**topdown_intel_targets, **targets}
+                if opt.temp:
+                    targets = {**temp_targets, **targets}
 
                 add_eval_targets(opt, targets)
 

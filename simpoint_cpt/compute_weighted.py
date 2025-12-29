@@ -124,9 +124,18 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
     existing_cols = [col for col in preferred_order if col in df.columns]
     other_cols = [col for col in df.columns if col not in existing_cols]
     df = df.reindex(columns=existing_cols + sorted(other_cols))
-    bmks = df['bmk'].unique()
     with open(js_path, 'r') as f:
         js = json.load(f)
+    valid_workloads = set(js.keys())
+    invalid_rows = df[~df['workload'].isin(valid_workloads)]
+    if not invalid_rows.empty:
+        dropped = sorted(invalid_rows['workload'].unique().tolist())
+        print(f"Skip workloads missing in weight json: {dropped}")
+        df = df[df['workload'].isin(valid_workloads)]
+    if df.empty:
+        print("All workloads were filtered out; nothing to process.")
+        return
+    bmks = df['bmk'].unique()
     weighted = {}
     dirty_bmk_pattern = re.compile(r'(?P<name>\w+)-(?P<dirty>\d)')
     for bmk in bmks:
@@ -141,14 +150,23 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
             print(f'{bmk} not in fp list')
             continue
         df_bmk = df[df['bmk'] == bmk]
+        if df_bmk.empty:
+            print(f'{bmk} has no valid workloads after filtering; skip.')
+            continue
         workloads = df_bmk['workload'].unique()
         n_wl = len(workloads)
         print(workloads)
-        if n_wl == 1:
+        if n_wl == 0:
+            print(f'{bmk} has zero workloads; skip.')
+            continue
+        elif n_wl == 1:
             metrics, cols = proc_input(df_bmk, js, workloads[0])
         else:
             metrics, cols = proc_bmk(df_bmk, js, bmk)
         weighted[bmk] = metrics[0]
+    if len(weighted) == 0:
+        print("No benchmarks left to weight; nothing to output.")
+        return
     weighted_df = pd.DataFrame.from_dict(weighted, orient='index', columns=cols)
 
     bmks_cleaned = []
