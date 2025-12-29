@@ -163,11 +163,12 @@ warmup_targets = {
 
 branch_targets = {
     'branches': '(?:cpus?|switch_cpus_1)\.commit\.branches',
-    'BpAllWrong': '(?:cpus?|switch_cpus_1)\.commit\.branchMispredicts',
-    'BpBWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:cond_branch',    # resolve stats
+    'BpBWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:cond_branch',    # committed stats
     'BpIWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:indirect_jump',
     'BpCallWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:indirect_call',
     'BpRetWrong': '(?:cpus?|switch_cpus_1)\.branchPred\.branchClassMisses\:\:return',
+
+    'BpBWrong2': '(?:cpus?|switch_cpus_1)\.branchPred\.controlSquashByClass\:\:cond_branch',    # resolved stats
     # 'fsqMean': '(?:cpus?|switch_cpus_1)\.branchPred\.commitFsqEntryHasInsts::mean',
     # 'fetchMean': '(?:cpus?|switch_cpus_1)\.fetch\.nisnDist::mean',
     # 'fetchNum0': '(?:cpus?|switch_cpus_1)\.fetch\.nisnDist::0',
@@ -188,6 +189,11 @@ branch_targets = {
     'resolveQueueFull': 'system\.cpu\.fetch\.resolveQueueFullEvents',
 
     'mbtbMisses': 'system\.cpu\.branchPred\.mbtb.updateMiss',
+}
+
+temp_targets = {
+    'diff1': 'system\.cpu\.branchPred\.tage\.recomputedVsActualDiff',
+    'diff2': 'system\.cpu\.branchPred\.tage\.recomputedVsOriginalDiff',
 }
 
 topdown_intel_targets = {
@@ -338,7 +344,13 @@ xs_branch_targets = {
 
     'resolveQueueFull':  r"\[PERF \]\[time=\s+\d+\] .*\.ftq.*: resolveQueueFull,\s+(\d+)",
     'updateBankConflict': r"\[PERF \]\[time=\s+\d+\] .*\.bpu.*: read_conflict,\s+(\d+)",
-    # 't2_branch_mis_diff': r"\[PERF \]\[time=\s+\d+\] .*\.tage.*: t2_branch_0_mispredict_diff,\s+(\d+)"
+
+    'commit_branch_mispredicts_reason_BTB': r"\[PERF \]\[time=\s+\d+\] .*\.ftq.*: commit_branch_mispredicts_reason_BTB,\s+(\d+)",
+}
+
+xs_temp_targets = {
+    # 't2_branch_mis_diff': r"\[PERF \]\[time=\s+\d+\] .*\.tage.*: t2_branch_0_mispredict_diff,\s+(\d+)",
+    'mispredict_diff': r"\[PERF \]\[time=\s+\d+\] .*\.tage.*: mispredict_diff,\s+(\d+)",
 }
 
 xs_cache_targets_22_04_nanhu = {
