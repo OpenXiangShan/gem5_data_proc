@@ -203,60 +203,61 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
             score[bmk]['ref_time'] = float(reftime_js[bmk])
             score[bmk]['score'] = score[bmk]['ref_time'] / score[bmk]['time']
             score[bmk]['coverage'] = weighted_df.loc[bmk, 'coverage']
-        score['mean'] = {
-            'time':0,
-            'ref_time':0,
-            'score': geometric_mean([x[1]['score'] for x in score.items()]),
-            'coverage':0
-        }
         score_col = ['time','ref_time','score','coverage']
         score = pd.DataFrame.from_dict(score, orient='index', columns=score_col)
-        score = score.sort_values(by='score', ascending=False)
         score['score'] = score['score']/(clock_rate/(10**9))
-        print(score)
-        try:
-            if args.int_only:
-                intdf = score.loc[u.spec_bmks[spec_v]['int']]
-            elif args.fp_only:
-                fpdf = score.loc[u.spec_bmks[spec_v]['float']]
-            else:# defalut
-                intdf = score.loc[u.spec_bmks[spec_v]['int']]
-                fpdf = score.loc[u.spec_bmks[spec_v]['float']]
-            print(args.score)
-            print(f'================ SPEC{spec_v} =================')
-            # print(score)
-            if not args.fp_only:
-                print(f'================ Int =================')
-                print(intdf)
-                print('Estimated Int GHz:', geometric_mean(intdf['score']))
-                print(f'Estimated Int {clock_rate/(10**9)}GHz:', geometric_mean(intdf['score'])*(clock_rate/(10**9)))
-            if not args.int_only:
-                print(f'================ FP =================')
-                print(fpdf)
-                print('Estimated FP GHz:', geometric_mean(fpdf['score']))
-                print(f'Estimated FP {clock_rate/(10**9)}GHz:', geometric_mean(fpdf['score'])*(clock_rate/(10**9)))
-            if not args.int_only and not args.fp_only:
-                print(f'================ Overall =================')
-                print('Estimated overall GHz:', score.loc['mean','score'])
-                print(f'Estimated overall {clock_rate/(10**9)}GHz:', score.loc['mean','score']*(clock_rate/(10**9)))
-            if args.score is not None:
-                score.to_csv(args.score)
-        except:
-            warnings.warn('spec result incomplete, scoring stop, print partial items')
-            for bmk in u.spec_bmks[spec_v]['int'] + u.spec_bmks[spec_v]['float']:
-                print(bmk)
-                if bmk not in score.index:
-                    print(f'Int {bmk} missing')
-            int_list = [x for x in u.spec_bmks[spec_v]['int'] if x in score.index]
-            fp_list = [x for x in u.spec_bmks[spec_v]['float'] if x in score.index]
-            intdf = score.loc[int_list]
-            fpdf = score.loc[fp_list]
+
+        # Get int/fp benchmark lists
+        int_bmks = [b for b in u.spec_bmks[spec_v]['int'] if b in score.index]
+        fp_bmks = [b for b in u.spec_bmks[spec_v]['float'] if b in score.index]
+
+        # Calculate averages
+        int_scores = score.loc[int_bmks, 'score'].dropna() if int_bmks else pd.Series()
+        fp_scores = score.loc[fp_bmks, 'score'].dropna() if fp_bmks else pd.Series()
+        int_avg = geometric_mean(int_scores) if len(int_scores) > 0 else np.nan
+        fp_avg = geometric_mean(fp_scores) if len(fp_scores) > 0 else np.nan
+        all_scores = score['score'].dropna()
+        overall_avg = geometric_mean(all_scores) if len(all_scores) > 0 else np.nan
+
+        # Build final DataFrame with summary rows in correct positions
+        rows = []
+        for bmk in int_bmks:
+            rows.append((bmk, score.loc[bmk]))
+        if not args.fp_only and not np.isnan(int_avg):
+            rows.append(('int_avg', pd.Series([np.nan, np.nan, int_avg, np.nan], index=score_col)))
+        for bmk in fp_bmks:
+            rows.append((bmk, score.loc[bmk]))
+        if not args.int_only and not np.isnan(fp_avg):
+            rows.append(('fp_avg', pd.Series([np.nan, np.nan, fp_avg, np.nan], index=score_col)))
+        if not args.int_only and not args.fp_only and not np.isnan(overall_avg):
+            rows.append(('overall_avg', pd.Series([np.nan, np.nan, overall_avg, np.nan], index=score_col)))
+
+        score = pd.DataFrame.from_dict(dict(rows), orient='index', columns=score_col)
+
+        # Print results
+        print(args.score)
+        print(f'================ SPEC{spec_v} =================')
+        if not args.fp_only:
+            intdf = score.loc[[b for b in int_bmks if b in score.index]]
             print(f'================ Int =================')
             print(intdf)
+            if not np.isnan(int_avg):
+                print('Estimated Int GHz:', int_avg)
+                print(f'Estimated Int {clock_rate/(10**9)}GHz:', int_avg*(clock_rate/(10**9)))
+        if not args.int_only:
+            fpdf = score.loc[[b for b in fp_bmks if b in score.index]]
             print(f'================ FP =================')
             print(fpdf)
-            if args.score is not None:
-                score.to_csv(args.score)
+            if not np.isnan(fp_avg):
+                print('Estimated FP GHz:', fp_avg)
+                print(f'Estimated FP {clock_rate/(10**9)}GHz:', fp_avg*(clock_rate/(10**9)))
+        if not args.int_only and not args.fp_only:
+            print(f'================ Overall =================')
+            print('Estimated overall GHz:', overall_avg)
+            print(f'Estimated overall {clock_rate/(10**9)}GHz:', overall_avg*(clock_rate/(10**9)))
+
+        if args.score is not None:
+            score.to_csv(args.score)
 
 
 if __name__ == '__main__':
