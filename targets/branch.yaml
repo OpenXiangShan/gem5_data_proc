@@ -1,0 +1,81 @@
+domain: bp
+
+defaults:
+  gem5_cpu_prefix: system.cpu
+  perf: "\\[PERF \\]\\[time=\\s+\\d+\\]"
+
+groups:
+  branch:
+    base_gem5: "{gem5_cpu_prefix}.branchPred"
+    xs_fmt: "{perf} .*\\.ftq.*: {stat},\\s+(\\d+)"
+    gem5:
+      branches: "system.cpu.commit.branches"
+      # committed stats
+      BpBWrong: "branchClassMisses::cond_branch"
+      BpIWrong: "branchClassMisses::indirect_jump"
+      BpCallWrong: "branchClassMisses::indirect_call"
+      BpRetWrong: "branchClassMisses::return"
+      # resolved stats
+      BpBWrong2: "controlSquashByClass::cond_branch"
+      BpDirectWrong2: "controlSquashByClass::direct_jump"
+      commitFsqEntryHasInsts: "commitFsqEntryHasInsts::mean"
+      predictionBlockedForUpdate: "system.cpu.branchPred.predictionBlockedForUpdate"
+      resolveQueueFull: "system.cpu.fetch.resolveQueueFullEvents"
+    xs:
+      BpBWrong: commit_branch_mispredicts_type_conditional
+      BpIWrong: commit_branch_mispredicts_type_indirect
+      BpCallWrong: commit_branch_mispredicts_type_call
+      BpRetWrong: commit_branch_mispredicts_type_ret
+      resolveQueueFull: resolveQueueFull
+
+  abtb:
+    base_gem5: "{gem5_cpu_prefix}.branchPred.abtb"
+    xs_fmt: "{perf} .*: {stat},\\s+(\\d+)"
+    gem5:
+      s1UseUBTB: S0PredUseUBTB
+      s1UseABTB: S0PredUseABTB
+      s1UseFallThrough: S0Predmiss
+    xs:
+      s1UseUBTB: s1_use_ubtb
+      s1UseABTB: s1_use_abtb
+      s1UseFallThrough: s1_use_fallThrough
+
+  tage:
+    base_gem5: "{gem5_cpu_prefix}.branchPred.tage"
+    xs_fmt: "{perf} .*\\.tage.*: {stat},\\s+(\\d+)"
+    gem5:
+      tage_update_mispred: updateMispred
+      updateProviderNa: updateProviderNa
+      updateAltDiffers: updateAltDiffers
+      updateUseAltCorrect: updateUseAltCorrect
+      updateUseAltWrong: updateUseAltWrong
+      updateBankConflict: updateBankConflict
+      resetUseful: updateResetU
+      allocateSuccess: updateAllocSuccess
+      allocateFailure: updateAllocFailure
+    xs:
+      tage_mispredict_diff: mispredict_diff
+      resetUseful: reset_useful
+      allocateSuccess: allocate_success
+      allocateFailure: allocate_failure
+
+  mbtb:
+    base_gem5: "{gem5_cpu_prefix}.branchPred.mbtb"
+    xs_fmt: "{perf} .*: {stat},\\s+(\\d+)"
+    gem5:
+      mbtb_update_miss: updateMiss
+      predHit: predHit
+      updateTotal: updateTotal
+    xs:
+      predHit: pred_hit
+      updateTotal: train_write_new_entry
+
+  fetch:
+    base_gem5: "{gem5_cpu_prefix}"
+    gem5:
+      fetch_nisn_mean: "fetch.nisnDist::mean"
+      fetch_nisn_0: "fetch.nisnDist::0"
+      fetch_nisn_total: "fetch.nisnDist::total"
+      icacheStallCycles: "fetch.icacheStallCycles"
+      fsqFullFetchHungry: "branchPred.fsqFullFetchHungry"
+      decodeStallRate: "fetch.decodeStallRate"

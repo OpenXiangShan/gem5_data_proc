@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+修改前请先给出可能的修改思路，我确认后再开始修改。
+
 ## Project Structure & Module Organization
 - `batch.py`：主入口，将 GEM5/XS 的统计日志解析为 CSV（见 `batch.py -h`）。
 - `utils/`：统计项（targets）定义与工具（重点看 `utils/target_stats.py`，基于正则匹配）。
@@ -13,7 +15,8 @@
 - 安装依赖：`python3 -m pip install -r requirements.txt`
 - 查看参数：`python3 batch.py -h`
 - 常用流程（GEM5 topdown + 加权算分）：
-  - 按 tag 解析：`bash example-scripts/gem5-topdown-tag.sh tage_noAlt`
+  - 推荐一条龙：`python3 run.py /path/to/results/tag --out-dir results`
+  - 兼容脚本：`bash example-scripts/gem5-topdown-tag.sh tage_noAlt`
   - 直接传结果目录：`bash example-scripts/gem5-topdown-tag.sh /path/to/results/tag`
 - 手动抽取示例：`python3 batch.py -s /path/to/results --cache --branch -o results/run.csv`
 - 加权/算分：`python3 simpoint_cpt/compute_weighted.py -r results/run.csv -j simpoint_cpt/resources/<cluster>.json -o results/run-weighted.csv`
@@ -21,7 +24,7 @@
 ## Coding Style & Naming Conventions
 - Python：4 空格缩进；函数/变量用 `snake_case`，命名清晰直白。
 - 脚本尽量保持可直接运行：`python3 <file>.py`；避免引入过重的新依赖。
-- 新增统计项时：优先扩展 `utils/target_stats.py` 的 target group，并在 `README.md` 里补充新 group 名称/用途。
+- 新增统计项时：优先在 `targets/*.yaml` 里按 group 扩展（可用 `python3 batch.py --list-groups` 查看），并在 `README.md` 里补充用法。
 
 ## Testing Guidelines
 - 当前仓库没有稳定、完善的测试体系。新增/重构关键逻辑时，建议在 `tests/` 下补充小而准的 `pytest` 测试，并确保可用 `python3 -m pytest` 运行。

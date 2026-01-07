@@ -7,6 +7,7 @@ set -x
 echo "Current working directory: $(pwd)"
 
 json_path=/nfs/share/zyy/spec06_rv64gcb_O3_20m_gcc12.2.0-intFpcOff-jeMalloc/zstd-checkpoint-0-0-0/cluster-0-0.json
+# json_path=/nfs/home/yanyue/workspace/cpt_scripts/spec06_0.3c_int.json
 
 # spec 17 json
 # json_path=/nfs/home/yanyue/spec17_cpts/checkpoint-0-0-0/cluster-0-0.json

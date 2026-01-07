@@ -16,6 +16,7 @@ import warnings
 args = []
 clock_rate = 3 * 10**9
 reftime_js = {}
+out_dir = 'results'
 
 def proc_input(wl_df: pd.DataFrame, js: dict, workload: str):
     # we implement the weighted metrics computation with the following formula:
@@ -65,7 +66,7 @@ def proc_input(wl_df: pd.DataFrame, js: dict, workload: str):
     # Drop these auxiliary fields
 
     wl_df['weight'] = vec_weight.values
-    wl_df.to_csv(osp.join('results', f'{workload}_raw.csv'))
+    wl_df.to_csv(osp.join(out_dir, f'{workload}_raw.csv'))
     to_drop = {'bmk', 'point', 'workload', 'ipc', 'weight'}
     to_drop = to_drop.intersection(set(wl_df.columns.to_list()))
     # print(set(wl_df.columns.to_list()))
@@ -74,9 +75,9 @@ def proc_input(wl_df: pd.DataFrame, js: dict, workload: str):
 
     weight_metrics = np.matmul(vec_weight.values.reshape(1, -1), wl_df.values)
     decomposed = pd.DataFrame(wl_df.values * vec_weight.values, columns=wl_df.columns, index=wl_df.index)
-    print(decomposed)  # decomposed
+    # print(decomposed)  # decomposed
     decomposed['weight'] = vec_weight.values
-    decomposed.to_csv(osp.join('results', f'{workload}_decomposed.csv'))
+    decomposed.to_csv(osp.join(out_dir, f'{workload}_decomposed.csv'))
     weight_metrics_df = pd.DataFrame(weight_metrics, columns=wl_df.columns)
     # We have to process coverage here to avoid apply weight on top of weight
     weight_metrics_df['coverage'] = coverage
@@ -265,6 +266,8 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--results', action='store', required=True, help='results generated from batch.py')
     parser.add_argument('-j', '--json', action='store', required=True, help='json file containing weight info')
     parser.add_argument('-o', '--output', action='store', required=False, help='csv file to stall results')
+    parser.add_argument('--out-dir', action='store', required=False, default='results',
+                        help='directory for intermediate raw/decomposed csv (default: results)')
     parser.add_argument('-I', '--int-only', action='store_true', required=False, help='only process int')
     parser.add_argument('-F', '--fp-only', action='store_true', required=False, help='only process fp')
     parser.add_argument('-s', '--score', action='store', required=False, help='csv file to stall weighted score results')
@@ -273,6 +276,8 @@ if __name__ == '__main__':
                         help='spec version, default is 06')
     parser.add_argument('-n', '--nix', action='store_true', required=False, help='handle nix stats')
     args = parser.parse_args()
+    out_dir = args.out_dir
+    os.makedirs(out_dir, exist_ok=True)
     clock_rate = float(args.clock) * 10**9
     if args.score:
         spec_v = args.spec_version

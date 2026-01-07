@@ -1,0 +1,16 @@
+domain: basic
+
+defaults:
+  gem5_cpu_prefix: system.cpu
+  perf: "\\[PERF \\]\\[time=\\s+\\d+\\]"
+
+groups:
+  basic:
+    base_gem5: "{gem5_cpu_prefix}"
+    gem5:
+      ipc: ipc
+      committedInsts: committedInsts
+      cycles: numCycles
+    xs:
+      committedInsts: "{perf} .*\\.rob.*: commitInstr,\\s+(\\d+)"
+      cycles: "{perf} .*\\.rob.*: clock_cycle,\\s+(\\d+)"

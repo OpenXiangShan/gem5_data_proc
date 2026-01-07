@@ -8,6 +8,8 @@ import json
 
 from utils import common as c
 from utils.target_stats import *
+from utils.targets_yaml import list_groups as yaml_list_groups
+from utils.targets_yaml import load_groups as yaml_load_groups
 from multiprocessing import Process,Manager
 import utils as u
 
@@ -43,7 +45,7 @@ def add_eval_targets(opt, targets: dict):
             else:
                 print("Adding eval target:", stat_target)
                 targets.update(eval(stat_target))
-        print(targets)
+        # print(targets)
 
 
 def main():
@@ -147,8 +149,29 @@ def main():
     parser.add_argument('--eval-stat', action='store',
             help='evaled stats',
             )
+    parser.add_argument('-g', '--groups', action='store', default='basic',
+                        help='comma-separated YAML groups to enable (default: basic), e.g. basic,branch,tage'
+                       )
+    parser.add_argument('--list-groups', action='store_true',
+                        help='list available YAML groups and exit'
+                       )
 
     opt = parser.parse_args()
+
+    target_dirs = ['targets', 'targets/local']
+    selected_groups = [g.strip() for g in opt.groups.split(',') if g.strip()]
+    if selected_groups and 'basic' not in selected_groups:
+        selected_groups = ['basic'] + selected_groups
+    if opt.list_groups:
+        print("\n".join(yaml_list_groups(target_dirs)))
+        return
+
+    if not selected_groups:
+        raise SystemExit("empty --groups is not supported; use at least 'basic'")
+
+    loaded = yaml_load_groups(target_dirs, selected_groups)
+    yaml_gem5_targets = loaded.gem5_targets
+    yaml_xs_targets = loaded.xs_targets
 
     add_nanhu_multicore_ipc_targets(opt.num_cores)
 
@@ -162,10 +185,20 @@ def main():
     paths = u.glob_stats(opt.stat_dir, fname=stat_file)
 
     print(paths)
-    assert len(paths) > 0
+    if len(paths) == 0:
+        import sys
+        print(f"Error: No '{stat_file}' found in '{opt.stat_dir}'")
+        print(f"Please check: 1) directory exists  2) file name is correct")
+        sys.exit(1)
 
-    manager = Manager()
-    all_bmk_dict = manager.dict()
+    use_mp = True
+    try:
+        manager = Manager()
+        all_bmk_dict = manager.dict()
+    except Exception as e:
+        print(f"warning: multiprocessing Manager unavailable, falling back to sequential mode: {e}")
+        use_mp = False
+        all_bmk_dict = {}
 
     require_flag = False
     xs_stat_fmt = opt.xiangshan or opt.old_xs
@@ -203,12 +236,12 @@ def main():
         # print(workload)
         if opt.ipc_only:
             if xs_stat_fmt:
-                d = c.xs_get_stats(path, xs_ipc_target, re_targets=True)
+                d = c.xs_get_stats(path, yaml_xs_targets, re_targets=True)
             else:
-                d = c.gem5_get_stats(path, ipc_target, re_targets=True)
+                d = c.gem5_get_stats(path, yaml_gem5_targets, re_targets=True)
         else:
             if xs_stat_fmt:
-                targets = xs_ipc_target
+                targets = dict(yaml_xs_targets)
                 if opt.branch:
                     targets = {**xs_branch_targets, **targets}
                 if opt.cache:
@@ -234,7 +267,7 @@ def main():
 
                 d = c.xs_get_stats(path, targets, re_targets=True)
             else:
-                targets = brief_targets
+                targets = dict(yaml_gem5_targets)
                 if opt.branch:
                     targets = {**branch_targets, **targets}
                 if opt.cache:
@@ -254,6 +287,13 @@ def main():
 
             # TODO: test eval stats
         if d and len(d):
+            if xs_stat_fmt:
+                if 'commitInstr' not in d and 'insts' in d:
+                    d['commitInstr'] = d['insts']
+                if 'total_cycles' not in d and 'cycles' in d:
+                    d['total_cycles'] = d['cycles']
+            if 'ipc' not in d and 'insts' in d and 'cycles' in d and d.get('cycles', 0) != 0:
+                d['ipc'] = d['insts'] / d['cycles']
             if opt.branch:
                 eval(f"c.{prefix}add_branch_mispred(d)")
             if opt.cache:
@@ -289,10 +329,13 @@ def main():
         gloabl_dict[workload] = d
         return
 
-    jobs = [Process(target=extract_and_post_process, args=(all_bmk_dict, workload, path)) for workload, path in paths]
-    _ = [p.start() for p in jobs]
-    _ = [p.join() for p in jobs]
-    print(all_bmk_dict)
+    if use_mp:
+        jobs = [Process(target=extract_and_post_process, args=(all_bmk_dict, workload, path)) for workload, path in paths]
+        _ = [p.start() for p in jobs]
+        _ = [p.join() for p in jobs]
+    else:
+        for workload, path in paths:
+            extract_and_post_process(all_bmk_dict, workload, path)
 
     # Filter out None values
     all_bmk_dict = {k: v for k, v in all_bmk_dict.items() if v is not None}
@@ -308,12 +351,8 @@ def main():
     # for x in df.index:
     #     print(x)
 
+    # YAML mode keeps NaN to distinguish "missing counter" vs "0"
     df = df.fillna(0)
-
-    if df.shape[0] > 1:
-        print(df)
-    else:
-        print(df.iloc[0])
 
     if opt.output:
         df.to_csv(opt.output, index=True)

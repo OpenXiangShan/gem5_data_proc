@@ -27,6 +27,47 @@ Use `batch.py` to extract XS's cache & branch performance counters:
 ``` shell
 batch.py -s /path/to/results/top/directory --cache --branch --xiangshan -f simulator_err.txt
 ```
+
+# One-shot runner (recommended)
+
+Use `run.py` to extract CSV and compute weighted + score in one command.
+It auto-detects XS format by searching `simulator_err.txt` in the directory.
+
+``` shell
+python3 run.py /path/to/results/tag --out-dir results
+python3 run.py /path/to/results/tag --out-dir results -j /path/to/cluster.json
+python3 run.py /path/to/results/tag --out-dir results -g basic,branch,tage
+```
+
+The legacy wrapper is still available (it calls `run.py` internally):
+``` shell
+bash example-scripts/gem5-topdown-tag.sh /path/to/results/tag
+bash example-scripts/gem5-topdown-tag.sh /path/to/results/tag -g basic,branch,tage,mbtb
+```
+
+# YAML targets (recommended for adding new counters)
+
+Targets can be defined in `targets/*.yaml` and enabled by group name.
+This is the preferred way to add new counters without editing `utils/target_stats.py`.
+
+List groups:
+``` shell
+python3 batch.py -s /path/to/results --list-groups
+```
+
+Enable YAML groups (missing counters are allowed and kept as NaN):
+``` shell
+python3 batch.py -s /path/to/results --groups basic,branch,tage -o results/run.csv
+python3 run.py /path/to/results --out-dir results -g basic,branch,tage
+```
+
+Common extra groups:
+``` shell
+python3 run.py /path/to/results --out-dir results -g basic,branch,fetch
+python3 run.py /path/to/results --out-dir results -g basic,topdown_intel
+```
+
+Local (not committed) extensions can be put under `targets/local/*.yaml` (gitignored).
 # Example for eval targets
 
 The `eval targets` trick makes use of Python's `eval` to avoid creating new options for every new stat group
@@ -187,4 +228,3 @@ A typical directory structure of XS looks like:
 |   `-- simulator_out.txt
 ...
 ```
-

@@ -354,7 +354,6 @@ def xs_get_stats(stat_file: str, targets: list,
         print(f"warning: in {stat_file} commitInstr appears {commitInstr_count} time(s), expected 2 (warmup + main)")
         return None
 
-    assert len(not_found_keys) == 0
     if len(not_found_keys) > 0:
         print(f"warning: in {stat_file} not found the following stats:")
         print(f"missing stats: {not_found_keys}")
@@ -396,13 +395,47 @@ def xs_get_stats(stat_file: str, targets: list,
     print(tdf)
     print(stats)
 
-    if not ('commitInstr' in stats and 'total_cycles' in stats):
-        print("Warn: rob_commitInstr or totalCycle not exists")
-        stats['ipc'] = 0
-    else:
-        stats['ipc'] = stats['commitInstr']/stats['total_cycles']
-        for c in range(1, num_cores):
-            stats[f'ipc{c}'] = stats[f'commitInstr{c}']/stats['total_cycles']
+    if 'ipc' not in stats:
+        insts_val = None
+        cycles_val = None
+
+        if 'commitInstr' in stats:
+            insts_val = stats.get('commitInstr')
+        elif 'committedInsts' in stats:
+            insts_val = stats.get('committedInsts')
+        elif 'insts' in stats:
+            insts_val = stats.get('insts')
+        elif 'Insts' in stats:
+            insts_val = stats.get('Insts')
+
+        if 'total_cycles' in stats:
+            cycles_val = stats.get('total_cycles')
+        elif 'cycles' in stats:
+            cycles_val = stats.get('cycles')
+        elif 'Cycles' in stats:
+            cycles_val = stats.get('Cycles')
+
+        if cycles_val not in (0, None) and insts_val is not None:
+            try:
+                stats['ipc'] = float(insts_val) / float(cycles_val)
+            except Exception:
+                stats['ipc'] = 0
+        else:
+            print("Warn: missing insts/cycles for ipc")
+            stats['ipc'] = 0
+
+    # KISS: provide common aliases expected by legacy post-processing / scripts.
+    if 'committedInsts' not in stats and 'commitInstr' in stats:
+        stats['committedInsts'] = stats['commitInstr']
+    if 'Insts' not in stats and 'committedInsts' in stats:
+        stats['Insts'] = stats['committedInsts']
+    if 'insts' not in stats and 'committedInsts' in stats:
+        stats['insts'] = stats['committedInsts']
+
+    if 'Cycles' not in stats and 'cycles' in stats:
+        stats['Cycles'] = stats['cycles']
+    if 'total_cycles' not in stats and 'cycles' in stats:
+        stats['total_cycles'] = stats['cycles']
     return stats
 
 
@@ -438,6 +471,23 @@ def gem5_get_stats(stat_file: str, targets: list,
                 m = patterns[k].search(line)
                 if not m is None:
                     stats[k] = to_num(m.group(1))
+        # KISS: common aliases expected by legacy post-processing / scripts.
+        if 'Insts' not in stats and 'committedInsts' in stats:
+            stats['Insts'] = stats['committedInsts']
+        if 'insts' not in stats and 'committedInsts' in stats:
+            stats['insts'] = stats['committedInsts']
+        if 'Cycles' not in stats:
+            if 'cycles' in stats:
+                stats['Cycles'] = stats['cycles']
+            elif 'numCycles' in stats:
+                stats['Cycles'] = stats['numCycles']
+        if 'cycles' not in stats and 'numCycles' in stats:
+            stats['cycles'] = stats['numCycles']
+        if 'ipc' not in stats and 'insts' in stats and stats.get('cycles', 0) not in (0, None):
+            try:
+                stats['ipc'] = float(stats['insts']) / float(stats['cycles'])
+            except Exception:
+                pass
         return stats
     else:
         assert config_file is not None
