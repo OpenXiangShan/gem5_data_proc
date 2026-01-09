@@ -22,7 +22,10 @@ groups:
       predictionBlockedForUpdate: "system.cpu.branchPred.predictionBlockedForUpdate"
       resolveQueueFull: "system.cpu.fetch.resolveQueueFullEvents"
     xs:
+      BpBInsts: commit_branch_type_conditional
       BpBWrong: commit_branch_mispredicts_type_conditional
+      BpBWrongReasonBTB: commit_conditional_branch_mispredicts_reason_BTB
+      BpBWrongReasonTAGE: commit_conditional_branch_mispredicts_reason_TAGE
       BpIWrong: commit_branch_mispredicts_type_indirect
       BpCallWrong: commit_branch_mispredicts_type_call
       BpRetWrong: commit_branch_mispredicts_type_ret
