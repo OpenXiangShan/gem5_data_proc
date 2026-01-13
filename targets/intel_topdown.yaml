@@ -1,0 +1,36 @@
+domain: topdown
+
+defaults:
+  gem5_cpu_prefix: system.cpu
+  perf: "\\[PERF \\]\\[time=\\s+\\d+\\]"
+
+groups:
+  intel_topdown:
+    base_gem5: "{gem5_cpu_prefix}"
+    xs_fmt: "{perf} .*: {stat},\\s+(\\d+)"
+    gem5:
+      inst_spec: "iew.dispatchedInsts"
+      fetch_bubble: "fetch.fetchBubbles"
+      fetch_bubble_eq_max: "fetch.fetchBubbles_max"
+      br_mis_pred: "iew.branchMispredicts"
+      total_squash: "commit.totalSquash"
+      recovery_bubble: "commit.recovery_bubble"
+      exec_stall_cycle: "scheduler.exec_stall_cycle"
+      mem_stall_any_load: "scheduler.memstall_any_load"
+      mem_stall_store: "scheduler.memstall_any_store"
+      mem_stall_l1miss: "scheduler.memstall_l1miss"
+      mem_stall_l2miss: "scheduler.memstall_l2miss"
+      mem_stall_l3miss: "scheduler.memstall_l3miss"
+    xs:
+      inst_spec: inst_spec
+      fetch_bubble: if_fetch_bubble
+      fetch_bubble_eq_max: if_fetch_bubble_eq_max
+      br_mis_pred: br_mis_pred
+      recovery_bubble: recovery_bubble
+      exec_stall_cycle: exec_stall_cycle
+      mem_stall_any_load: mem_stall_anyload
+      mem_stall_store: mem_stall_store
+      mem_stall_l1miss: mem_stall_l1miss
+      mem_stall_l2miss: mem_stall_l2miss
+      mem_stall_l3miss: mem_stall_l3miss
+
