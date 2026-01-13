@@ -10,6 +10,7 @@ from utils import common as c
 from utils.target_stats import *
 from utils.targets_yaml import list_groups as yaml_list_groups
 from utils.targets_yaml import load_groups as yaml_load_groups
+from utils.derived_metrics import apply_derived_metrics
 from multiprocessing import Process,Manager
 import utils as u
 
@@ -172,6 +173,7 @@ def main():
     loaded = yaml_load_groups(target_dirs, selected_groups)
     yaml_gem5_targets = loaded.gem5_targets
     yaml_xs_targets = loaded.xs_targets
+    yaml_derived = loaded.derived
 
     add_nanhu_multicore_ipc_targets(opt.num_cores)
 
@@ -351,8 +353,8 @@ def main():
     # for x in df.index:
     #     print(x)
 
-    # YAML mode keeps NaN to distinguish "missing counter" vs "0"
     df = df.fillna(0)
+    df = apply_derived_metrics(df, yaml_derived)
 
     if opt.output:
         df.to_csv(opt.output, index=True)

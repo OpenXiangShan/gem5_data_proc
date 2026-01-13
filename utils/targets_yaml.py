@@ -37,6 +37,7 @@ class LoadedYamlTargets:
     groups: List[str]
     gem5_targets: Dict[str, str]
     xs_targets: Dict[str, str]
+    derived: Dict[str, str]
 
 
 def _load_yaml_file(path: str) -> dict:
@@ -86,7 +87,7 @@ def load_groups(
 ) -> LoadedYamlTargets:
     selected = [g.strip() for g in selected_groups if g.strip()]
     if not selected:
-        return LoadedYamlTargets(groups=[], gem5_targets={}, xs_targets={})
+        return LoadedYamlTargets(groups=[], gem5_targets={}, xs_targets={}, derived={})
 
     all_files = discover_target_files(dirs)
     if not all_files:
@@ -94,6 +95,7 @@ def load_groups(
 
     gem5_targets: Dict[str, str] = {}
     xs_targets: Dict[str, str] = {}
+    derived: Dict[str, str] = {}
     loaded_groups: List[str] = []
 
     for f in all_files:
@@ -132,6 +134,10 @@ def load_groups(
             if not isinstance(xs_map, dict):
                 raise ValueError(f"invalid xs map for {group_name!r} in {f}")
 
+            derived_map = group_def.get("derived", {}) or {}
+            if not isinstance(derived_map, dict):
+                raise ValueError(f"invalid derived map for {group_name!r} in {f}")
+
             for col, suffix in gem5_map.items():
                 col = str(col).strip()
                 if not col:
@@ -154,6 +160,15 @@ def load_groups(
                 else:
                     xs_targets[col] = xs_val_s
 
+            for col, expr in derived_map.items():
+                col = str(col).strip()
+                if not col:
+                    continue
+                expr = _format_macros(str(expr), macros)
+                if col in derived and derived[col] != expr:
+                    raise ValueError(f"duplicate derived column {col!r} across yaml files/groups")
+                derived[col] = expr
+
     missing_groups = sorted(set(selected) - set(loaded_groups))
     if missing_groups:
         raise ValueError(f"unknown groups: {', '.join(missing_groups)}")
@@ -161,5 +176,9 @@ def load_groups(
     # internal: allow a convenient "domain" prefix if caller wants it later
     _ = domain
     _ = _snake_case
-    return LoadedYamlTargets(groups=sorted(set(loaded_groups)), gem5_targets=gem5_targets, xs_targets=xs_targets)
-
+    return LoadedYamlTargets(
+        groups=sorted(set(loaded_groups)),
+        gem5_targets=gem5_targets,
+        xs_targets=xs_targets,
+        derived=derived,
+    )
