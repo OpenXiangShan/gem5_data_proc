@@ -151,8 +151,8 @@ def main():
     parser.add_argument('--eval-stat', action='store',
             help='evaled stats',
             )
-    parser.add_argument('-g', '--groups', action='store', default='basic',
-                        help='comma-separated YAML groups to enable (default: basic), e.g. basic,branch,tage'
+    parser.add_argument('-g', '--groups', action='store', default='all',
+                        help="comma-separated YAML groups to enable (default: all)."
                        )
     parser.add_argument('--list-groups', action='store_true',
                         help='list available YAML groups and exit'
@@ -369,13 +369,21 @@ def main():
         eval(f"c.{prefix}topdown_post_process(df)")
 
     df = df.sort_index()
-    df = df.reindex(sorted(df.columns), axis=1)
     # df = df.sort_values(['ipc'])
     # for x in df.index:
     #     print(x)
 
     df = df.fillna(0)
     df = apply_derived_metrics(df, yaml_derived)
+
+    # Keep CSV columns in YAML definition order (plus any extra columns at the end),
+    # so downstream weighted CSV + compare UI show a stable, meaningful order.
+    preferred_front = [c for c in ('bmk', 'workload', 'point') if c in df.columns]
+    ordered = preferred_front + [
+        c for c in loaded.column_order if c in df.columns and c not in preferred_front
+    ]
+    other = [c for c in df.columns if c not in ordered]
+    df = df.reindex(columns=ordered + other)
 
     if opt.output:
         df.to_csv(opt.output, index=True)

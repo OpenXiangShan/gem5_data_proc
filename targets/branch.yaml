@@ -21,13 +21,6 @@ groups:
       commitFsqEntryHasInsts: "commitFsqEntryHasInsts::mean"
       predictionBlockedForUpdate: "system.cpu.branchPred.predictionBlockedForUpdate"
       resolveQueueFull: "system.cpu.fetch.resolveQueueFullEvents"
-      commit_branch_mispredicts_s1_source_Fallthrough: "s1PredWrongFallthrough"
-      commit_branch_mispredicts_s1_source_Ubtb: "s1PredWrongUbtb"
-      commit_branch_mispredicts_s1_source_Abtb: "s1PredWrongAbtb"
-      commit_branch_mispredicts_reason_BTB: "s3PredWrongMbtb"
-      commit_branch_mispredicts_reason_TAGE: "s3PredWrongTage"
-      commit_branch_mispredicts_reason_ITTAGE: "s3PredWrongIttage"
-      commit_branch_mispredicts_reason_RAS: "s3PredWrongRas"
     xs:
       BpBInsts: commit_branch_type_conditional
       BpBWrong: commit_branch_mispredicts_type_conditional
@@ -37,6 +30,22 @@ groups:
       BpCallWrong: commit_branch_mispredicts_type_call
       BpRetWrong: commit_branch_mispredicts_type_ret
       resolveQueueFull: resolveQueueFull
+    derived:
+      cond_MPKI: "BpBWrong * 1000 / 20000000"
+      BPAllWrong: BpBWrong + BpIWrong + BpCallWrong + BpRetWrong
+
+  branch_reason:
+    base_gem5: "{gem5_cpu_prefix}.branchPred"
+    xs_fmt: "{perf} .*\\.ftq.*: {stat},\\s+(\\d+)"
+    gem5:
+      commit_branch_mispredicts_s1_source_Fallthrough: "s1PredWrongFallthrough"
+      commit_branch_mispredicts_s1_source_Ubtb: "s1PredWrongUbtb"
+      commit_branch_mispredicts_s1_source_Abtb: "s1PredWrongAbtb"
+      commit_branch_mispredicts_reason_BTB: "s3PredWrongMbtb"
+      commit_branch_mispredicts_reason_TAGE: "s3PredWrongTage"
+      commit_branch_mispredicts_reason_ITTAGE: "s3PredWrongIttage"
+      commit_branch_mispredicts_reason_RAS: "s3PredWrongRas"
+    xs:
       commit_branch_mispredicts_s1_source_Fallthrough: commit_branch_mispredicts_s1_source_Fallthrough
       commit_branch_mispredicts_s1_source_Abtb: commit_branch_mispredicts_s1_source_Abtb
       commit_branch_mispredicts_s1_source_Ubtb: commit_branch_mispredicts_s1_source_Ubtb
@@ -44,9 +53,6 @@ groups:
       commit_branch_mispredicts_reason_TAGE: commit_branch_mispredicts_reason_TAGE
       commit_branch_mispredicts_reason_ITTAGE: commit_branch_mispredicts_reason_ITTAGE
       commit_branch_mispredicts_reason_BTB: commit_branch_mispredicts_reason_BTB
-    derived:
-      cond_MPKI: "BpBWrong * 1000 / 20000000"
-      BPAllWrong: BpBWrong + BpIWrong + BpCallWrong + BpRetWrong
 
   abtb:
     base_gem5: "{gem5_cpu_prefix}.branchPred.abtb"

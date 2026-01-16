@@ -32,11 +32,12 @@ batch.py -s /path/to/results/top/directory --cache --branch --xiangshan -f simul
 
 Use `run.py` to extract CSV and compute weighted + score in one command.
 It auto-detects XS format by searching `simulator_err.txt` in the directory.
+By default it enables all YAML groups (equivalent to `batch.py --groups all`).
 
 ``` shell
 python3 run.py /path/to/results/tag --out-dir results
 python3 run.py /path/to/results/tag --out-dir results -j /path/to/cluster.json
-python3 run.py /path/to/results/tag --out-dir results -g basic,branch,tage
+python3 run.py /path/to/results/tag --out-dir results -g basic,branch,tage  # override groups
 ```
 
 The legacy wrapper is still available (it calls `run.py` internally):
@@ -52,22 +53,36 @@ This is the preferred way to add new counters without editing `utils/target_stat
 
 List groups:
 ``` shell
-python3 batch.py -s /path/to/results --list-groups
+python3 batch.py --list-groups
 ```
 
 Enable YAML groups (missing counters are allowed and kept as NaN):
 ``` shell
 python3 batch.py -s /path/to/results --groups basic,branch,tage -o results/run.csv
+python3 batch.py -s /path/to/results --groups all -o results/run.csv
 python3 run.py /path/to/results --out-dir results -g basic,branch,tage
 ```
 
 Common extra groups:
 ``` shell
 python3 run.py /path/to/results --out-dir results -g basic,branch,fetch
-python3 run.py /path/to/results --out-dir results -g basic,topdown_intel
+python3 run.py /path/to/results --out-dir results -g basic,intel_topdown
 ```
 
 Local (not committed) extensions can be put under `targets/local/*.yaml` (gitignored).
+
+# Compare weighted CSV (web UI)
+
+Compare two weighted CSVs in a local web UI:
+``` shell
+python3 compare_weighted.py results/a-weighted.csv results/b-weighted.csv
+```
+
+Features:
+- Group filter (multi-select, union): show one or more YAML groups at a time
+- Click `x` in a column header to hide a column; `reset hidden` to restore
+- `only changed` to show columns with any diff
+- `export csv` to export current view as diff strings: `+12.34% (1.23 -> 1.38)`
 # Example for eval targets
 
 The `eval targets` trick makes use of Python's `eval` to avoid creating new options for every new stat group

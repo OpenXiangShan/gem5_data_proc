@@ -38,6 +38,10 @@ class LoadedYamlTargets:
     gem5_targets: Dict[str, str]
     xs_targets: Dict[str, str]
     derived: Dict[str, str]
+    # Ordered columns as they appear in YAML across selected groups/files.
+    column_order: List[str]
+    # Per-group ordered column names (gem5/xs/derived keys merged, YAML order).
+    group_to_columns: Dict[str, List[str]]
 
 
 def _load_yaml_file(path: str) -> dict:
@@ -87,7 +91,14 @@ def load_groups(
 ) -> LoadedYamlTargets:
     selected = [g.strip() for g in selected_groups if g.strip()]
     if not selected:
-        return LoadedYamlTargets(groups=[], gem5_targets={}, xs_targets={}, derived={})
+        return LoadedYamlTargets(
+            groups=[],
+            gem5_targets={},
+            xs_targets={},
+            derived={},
+            column_order=[],
+            group_to_columns={},
+        )
 
     all_files = discover_target_files(dirs)
     if not all_files:
@@ -97,6 +108,8 @@ def load_groups(
     xs_targets: Dict[str, str] = {}
     derived: Dict[str, str] = {}
     loaded_groups: List[str] = []
+    group_to_columns: Dict[str, List[str]] = {}
+    column_order: List[str] = []
 
     for f in all_files:
         data = _load_yaml_file(f)
@@ -137,6 +150,20 @@ def load_groups(
             derived_map = group_def.get("derived", {}) or {}
             if not isinstance(derived_map, dict):
                 raise ValueError(f"invalid derived map for {group_name!r} in {f}")
+
+            # Track YAML key order for UI/CSV column ordering.
+            # Order: gem5 keys then xs keys then derived keys, dedup within group.
+            group_cols: List[str] = group_to_columns.setdefault(group_name, [])
+            group_seen = set(group_cols)
+            for m in (gem5_map, xs_map, derived_map):
+                for col in m.keys():
+                    col = str(col).strip()
+                    if not col or col in group_seen:
+                        continue
+                    group_cols.append(col)
+                    group_seen.add(col)
+                    if col not in column_order:
+                        column_order.append(col)
 
             for col, suffix in gem5_map.items():
                 col = str(col).strip()
@@ -181,4 +208,6 @@ def load_groups(
         gem5_targets=gem5_targets,
         xs_targets=xs_targets,
         derived=derived,
+        column_order=column_order,
+        group_to_columns=group_to_columns,
     )

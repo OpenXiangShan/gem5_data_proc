@@ -116,15 +116,8 @@ def proc_bmk(bmk_df: pd.DataFrame, js: dict, bmk: str):
 def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
     spec_v = args.spec_version
     df = pd.read_csv(csv_path, index_col=0)
-    
-    # Fix column order at source - KISS principle
-    from utils.target_stats import brief_targets
-    preferred_order = list(brief_targets.keys())
-    if 'cpi' in df.columns and 'Cycles' in preferred_order:
-        preferred_order.insert(preferred_order.index('Cycles') + 1, 'cpi')
-    existing_cols = [col for col in preferred_order if col in df.columns]
-    other_cols = [col for col in df.columns if col not in existing_cols]
-    df = df.reindex(columns=existing_cols + sorted(other_cols))
+
+    # Preserve input CSV column order (batch.py already emits YAML-ordered columns).
     with open(js_path, 'r') as f:
         js = json.load(f)
     valid_workloads = set(js.keys())
