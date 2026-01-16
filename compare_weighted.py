@@ -19,10 +19,10 @@ def generate_html(file1, file2):
     df1 = pd.read_csv(file1, index_col=0)
     df2 = pd.read_csv(file2, index_col=0)
 
-    all_cols = list(df1.columns.union(df2.columns))
+    all_cols = list(df1.columns.union(df2.columns, sort=False))
     cols_only_in_file1 = set(df1.columns) - set(df2.columns)
     cols_only_in_file2 = set(df2.columns) - set(df1.columns)
-    all_rows = df1.index.union(df2.index)
+    all_rows = df1.index.union(df2.index, sort=False)
     only_in_file1 = set(df1.index) - set(df2.index)
     only_in_file2 = set(df2.index) - set(df1.index)
 
