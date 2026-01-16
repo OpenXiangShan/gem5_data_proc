@@ -51,7 +51,8 @@ def add_eval_targets(opt, targets: dict):
 
 def main():
     parser = argparse.ArgumentParser(usage='specify stat directory')
-    parser.add_argument('-s', '--stat-dir', action='store', required=True,
+    # Note: keep -s optional so `--list-groups` can work without requiring a dummy path.
+    parser.add_argument('-s', '--stat-dir', action='store', required=False,
                         help='gem5 output directory'
                        )
     parser.add_argument('-o', '--output', action='store',
@@ -160,12 +161,32 @@ def main():
     opt = parser.parse_args()
 
     target_dirs = ['targets', 'targets/local']
-    selected_groups = [g.strip() for g in opt.groups.split(',') if g.strip()]
-    if selected_groups and 'basic' not in selected_groups:
-        selected_groups = ['basic'] + selected_groups
     if opt.list_groups:
         print("\n".join(yaml_list_groups(target_dirs)))
         return
+
+    if not opt.stat_dir:
+        # Preserve argparse-style UX when --list-groups is not used.
+        parser.error("the following arguments are required: -s/--stat-dir")
+
+    def _dedup_keep_order(xs):
+        seen = set()
+        out = []
+        for x in xs:
+            if x not in seen:
+                out.append(x)
+                seen.add(x)
+        return out
+
+    selected_groups = [g.strip() for g in (opt.groups or "").split(',') if g.strip()]
+    # Convenience: allow `-g all` to mean "enable every YAML group".
+    if any(g.lower() == "all" for g in selected_groups):
+        all_groups = yaml_list_groups(target_dirs)
+        selected_groups = ["basic"] + [g for g in all_groups if g != "basic"]
+    elif selected_groups and 'basic' not in selected_groups:
+        selected_groups = ['basic'] + selected_groups
+
+    selected_groups = _dedup_keep_order(selected_groups)
 
     if not selected_groups:
         raise SystemExit("empty --groups is not supported; use at least 'basic'")

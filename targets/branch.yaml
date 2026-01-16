@@ -46,6 +46,7 @@ groups:
       commit_branch_mispredicts_reason_BTB: commit_branch_mispredicts_reason_BTB
     derived:
       cond_MPKI: "BpBWrong * 1000 / 20000000"
+      BPAllWrong: BpBWrong + BpIWrong + BpCallWrong + BpRetWrong
 
   abtb:
     base_gem5: "{gem5_cpu_prefix}.branchPred.abtb"

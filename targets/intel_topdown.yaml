@@ -51,23 +51,4 @@ groups:
       l3Bound: "(mem_stall_l2miss - mem_stall_l3miss) / cycles"
       memBound: "mem_stall_l3miss / cycles"
       storeBound: "mem_stall_store / cycles"
-
-  topdown:
-    base_gem5: "{gem5_cpu_prefix}"
-    xs_fmt: "{perf} .*: {stat},\\s+(\\d+)"
-    gem5:
-      baseRetiring: "baseRetiring"
-      frontendBound: "frontendBound"
-      frontendLatencyBound: "frontendLatencyBound"
-      frontendBandwidthBound: "frontendBandwidthBound"
-      badSpecBound: "badSpecBound"
-      branchMissPrediction: "branchMissPrediction"
-      machineClears: "machineClears"
-      backendBound: "backendBound"
-      coreBound: "coreBound"
-      memoryBound: "memoryBound"
-      l1Bound: "l1Bound"
-      l2Bound: "l2Bound"
-      l3Bound: "l3Bound"
-      memBound: "memBound"
-      storeBound: "storeBound"
+  

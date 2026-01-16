@@ -1,7 +1,50 @@
 #!/usr/bin/env python3
-import pandas as pd
+
+import argparse
+import json
 import sys
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from pathlib import Path
+
+import pandas as pd
+
+
+def _load_group_columns(repo_root: Path) -> dict:
+    """Return {group_name: [col, ...]} from targets/*.yaml (gem5/xs/derived keys)."""
+    try:
+        import yaml  # type: ignore
+    except Exception:
+        # Repo ships PyYAML in requirements.txt; keep a soft failure for portability.
+        return {}
+
+    target_dirs = [repo_root / "targets", repo_root / "targets" / "local"]
+    group_to_cols: dict = {}
+
+    for d in target_dirs:
+        if not d.is_dir():
+            continue
+        for p in sorted(d.iterdir()):
+            if p.suffix not in {".yaml", ".yml"}:
+                continue
+            data = yaml.safe_load(p.read_text()) or {}
+            groups = data.get("groups", {}) or {}
+            if not isinstance(groups, dict):
+                continue
+            for gname, gdef in groups.items():
+                if not isinstance(gdef, dict):
+                    continue
+                cols = set()
+                for sec in ("gem5", "xs", "derived"):
+                    m = gdef.get(sec, {}) or {}
+                    if isinstance(m, dict):
+                        for k in m.keys():
+                            k = str(k).strip()
+                            if k:
+                                cols.add(k)
+                if cols:
+                    group_to_cols.setdefault(str(gname), set()).update(cols)
+
+    return {g: sorted(cols) for g, cols in group_to_cols.items()}
 
 class ComparisonHandler(BaseHTTPRequestHandler):
     html_content = ""
@@ -15,7 +58,25 @@ class ComparisonHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-def generate_html(file1, file2):
+
+def _pick_default_group(group_to_cols: dict, available_cols: list, preferred: str) -> str:
+    if preferred and preferred in group_to_cols:
+        return preferred
+    # Prefer intel_topdown if available, otherwise fall back to the "largest" group.
+    if "intel_topdown" in group_to_cols:
+        return "intel_topdown"
+    if group_to_cols:
+        scored = []
+        avail = set(available_cols)
+        for g, cols in group_to_cols.items():
+            scored.append((len([c for c in cols if c in avail]), g))
+        scored.sort(reverse=True)
+        if scored and scored[0][0] > 0:
+            return scored[0][1]
+    return "all"
+
+
+def generate_html(file1, file2, default_group: str = ""):
     df1 = pd.read_csv(file1, index_col=0)
     df2 = pd.read_csv(file2, index_col=0)
 
@@ -50,9 +111,27 @@ def generate_html(file1, file2):
                 row_data[col] = {'pct': None, 'v1': None, 'v2': float(v2), 'only': 2}
         data.append(row_data)
 
-    import json
+    repo_root = Path(__file__).resolve().parent
+    group_to_cols = _load_group_columns(repo_root)
+    # Only expose groups that actually exist in the current CSV(s).
+    avail_set = set(all_cols)
+    group_to_cols = {
+        g: [c for c in cols if c in avail_set]
+        for g, cols in group_to_cols.items()
+        if any(c in avail_set for c in cols)
+    }
+    grouped_cols = set()
+    for cols in group_to_cols.values():
+        grouped_cols.update(cols)
+    meta_cols = sorted([c for c in all_cols if c not in grouped_cols])
+    picked_default_group = _pick_default_group(group_to_cols, all_cols, default_group)
+
     data_json = json.dumps(data)
     cols_json = json.dumps(all_cols)
+    group_json = json.dumps(group_to_cols)
+    groups_json = json.dumps(sorted(group_to_cols.keys()))
+    meta_json = json.dumps(meta_cols)
+    default_group_json = json.dumps(picked_default_group)
 
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Weighted CSV Comparison</title>
@@ -61,17 +140,62 @@ def generate_html(file1, file2):
 <style>
 body{{font-family:Arial,sans-serif;margin:20px;background:#f5f5f5}}
 h2{{color:#333}}
+#controls{{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0 14px 0}}
+#controls label{{display:flex;gap:6px;align-items:center}}
+#controls input[type="text"]{{padding:4px 6px}}
 #table{{background:white;box-shadow:0 2px 4px rgba(0,0,0,0.1)}}
 .val{{font-size:0.85em;color:#666;display:block}}
 </style></head><body>
 <h2>Comparison: {file1.split('/')[-1]} vs {file2.split('/')[-1]}</h2>
+<div id="controls">
+  <label>Group
+    <select id="groupSelect">
+      <option value="all">all</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="showMeta">show meta</label>
+  <label><input type="checkbox" id="onlyChanged">only changed</label>
+  <label>Columns
+    <input type="text" id="colPattern" placeholder="substring (case-sensitive)">
+  </label>
+  <button id="hideMatched" type="button">hide matched</button>
+  <button id="showMatched" type="button">show matched</button>
+  <button id="resetHidden" type="button">reset hidden</button>
+</div>
 <div id="table"></div>
 <script>
 const data = {data_json};
+const allCols = {cols_json};
+const groupToCols = {group_json};
+const groups = {groups_json};
+const metaCols = {meta_json};
+const defaultGroup = {default_group_json};
+
+// Columns with any diff (pct != 0) or present-only markers.
+function computeChangedCols() {{
+  const changed = new Set();
+  for (const row of data) {{
+    for (const col of allCols) {{
+      const v = row[col];
+      if (!v) continue;
+      if (v.only === 1 || v.only === 2) {{
+        changed.add(col);
+        continue;
+      }}
+      if (typeof v.pct === "number" && v.pct !== 0) {{
+        changed.add(col);
+      }}
+    }}
+  }}
+  return changed;
+}}
+const changedCols = computeChangedCols();
+const hiddenByUser = new Set();
+
 const columns = [
     {{title: "Benchmark", field: "benchmark", frozen: true, headerFilter: "input", width: 150}}
 ];
-{cols_json}.forEach(col => {{
+allCols.forEach(col => {{
     columns.push({{
         title: col,
         field: col,
@@ -102,29 +226,106 @@ const columns = [
         }}
     }});
 }});
-new Tabulator("#table", {{
+const table = new Tabulator("#table", {{
     data: data,
     columns: columns,
     layout: "fitData",
     movableColumns: true,
     height: "80vh"
 }});
+
+function updateVisibility() {{
+  const selectedGroup = document.getElementById("groupSelect").value;
+  const showMeta = document.getElementById("showMeta").checked;
+  const onlyChanged = document.getElementById("onlyChanged").checked;
+
+  let visible = new Set();
+  if (selectedGroup === "all") {{
+    for (const c of allCols) visible.add(c);
+  }} else {{
+    const cols = groupToCols[selectedGroup] || [];
+    for (const c of cols) visible.add(c);
+  }}
+  if (showMeta) {{
+    for (const c of metaCols) visible.add(c);
+  }}
+  if (onlyChanged) {{
+    visible = new Set([...visible].filter(c => changedCols.has(c)));
+  }}
+
+  for (const col of allCols) {{
+    const shouldShow = visible.has(col) && !hiddenByUser.has(col);
+    if (shouldShow) {{
+      table.showColumn(col);
+    }} else {{
+      table.hideColumn(col);
+    }}
+  }}
+}}
+
+function initControls() {{
+  const sel = document.getElementById("groupSelect");
+  for (const g of groups) {{
+    const opt = document.createElement("option");
+    opt.value = g;
+    opt.textContent = g;
+    sel.appendChild(opt);
+  }}
+  sel.value = (defaultGroup === "all" || groups.includes(defaultGroup)) ? defaultGroup : "all";
+
+  document.getElementById("groupSelect").addEventListener("change", updateVisibility);
+  document.getElementById("showMeta").addEventListener("change", updateVisibility);
+  document.getElementById("onlyChanged").addEventListener("change", updateVisibility);
+
+  function hideOrShowMatched(mode) {{
+    const pat = document.getElementById("colPattern").value || "";
+    const matched = pat ? allCols.filter(c => c.includes(pat)) : [];
+    if (!matched.length) return;
+    for (const c of matched) {{
+      if (mode === "hide") hiddenByUser.add(c);
+      if (mode === "show") hiddenByUser.delete(c);
+    }}
+    updateVisibility();
+  }}
+  document.getElementById("hideMatched").addEventListener("click", () => hideOrShowMatched("hide"));
+  document.getElementById("showMatched").addEventListener("click", () => hideOrShowMatched("show"));
+  document.getElementById("resetHidden").addEventListener("click", () => {{
+    hiddenByUser.clear();
+    document.getElementById("colPattern").value = "";
+    updateVisibility();
+  }});
+
+  updateVisibility();
+}}
+
+initControls();
 </script></body></html>"""
     return html
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("用法: python compare_weighted.py <file1.csv> <file2.csv>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Compare two weighted CSVs in a local web UI")
+    parser.add_argument("file1", help="baseline csv (weighted)")
+    parser.add_argument("file2", help="new csv (weighted)")
+    parser.add_argument(
+        "--default-group",
+        default="intel_topdown",
+        help="default group to display on page load (default: intel_topdown)",
+    )
+    opt = parser.parse_args()
 
-    ComparisonHandler.html_content = generate_html(sys.argv[1], sys.argv[2])
+    ComparisonHandler.html_content = generate_html(opt.file1, opt.file2, default_group=opt.default_group)
 
     for port in range(8000, 8100):
         try:
             server = HTTPServer(('', port), ComparisonHandler)
             print(f"服务器启动: http://localhost:{port}")
             print("按 Ctrl+C 停止服务器")
-            server.serve_forever()
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt:
+                print("\n服务器停止")
+            finally:
+                server.server_close()
             break
         except OSError:
             continue
