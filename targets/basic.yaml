@@ -2,7 +2,8 @@ domain: basic
 
 defaults:
   gem5_cpu_prefix: system.cpu
-  perf: "\\[PERF \\]\\[time=\\s+\\d+\\]"
+  # Some logs print `[time=14539151]` (no space after `=`), some print `[time= 14539151]`.
+  perf: "\\[PERF \\]\\[time=\\s*\\d+\\]"
 
 groups:
   basic:

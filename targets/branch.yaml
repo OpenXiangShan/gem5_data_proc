@@ -2,7 +2,7 @@ domain: bp
 
 defaults:
   gem5_cpu_prefix: system.cpu
-  perf: "\\[PERF \\]\\[time=\\s+\\d+\\]"
+  perf: "\\[PERF \\]\\[time=\\s*\\d+\\]"
 
 groups:
   branch:
