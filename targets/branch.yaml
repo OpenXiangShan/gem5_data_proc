@@ -21,6 +21,7 @@ groups:
       commitFsqEntryHasInsts: "commitFsqEntryHasInsts::mean"
       predictionBlockedForUpdate: "system.cpu.branchPred.predictionBlockedForUpdate"
       resolveQueueFull: "system.cpu.fetch.resolveQueueFullEvents"
+      overrideBubbleNum: "overrideBubbleNum"
     xs:
       BpBInsts: commit_branch_type_conditional
       BpBWrong: commit_branch_mispredicts_type_conditional
@@ -95,6 +96,19 @@ groups:
     xs:
       predHit: pred_hit
       updateTotal: train_write_new_entry
+      predMiss: pred_miss
+      train_has_mispredict: train_has_mispredict
+      train_mispredict_conditional_because_mbtb_miss: train_mispredict_conditional_because_mbtb_miss
+
+  microtage:
+    base_gem5: "{gem5_cpu_prefix}.branchPred.microtage"
+    xs_fmt: "{perf} .*: {stat},\\s+(\\d+)"
+    gem5:
+      condPredwrong: condPredwrong
+      condCorrect: condCorrect
+    derived:
+      microtage_MPKI: "condPredwrong * 1000 / 20000000"
+      cond_wrong_rate: condPredwrong / (condCorrect + condPredwrong)
 
   fetch:
     base_gem5: "{gem5_cpu_prefix}"

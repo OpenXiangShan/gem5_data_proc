@@ -129,9 +129,10 @@ def main():
     if not args.no_process and final_dir and final_dir.exists():
         print(f"\nRunning gem5-topdown-tag.sh {final_dir}")
         subprocess.run(
-            ["bash", "example-scripts/gem5-topdown-tag.sh", str(final_dir)],
+            ["python3", "run.py", str(final_dir)],
             cwd=SCRIPT_DIR
         )
+        print("final_dir:", final_dir)
 
 
 if __name__ == "__main__":
