@@ -55,6 +55,22 @@ groups:
       commit_branch_mispredicts_reason_ITTAGE: commit_branch_mispredicts_reason_ITTAGE
       commit_branch_mispredicts_reason_BTB: commit_branch_mispredicts_reason_BTB
 
+  frontend:
+    base_gem5: "{gem5_cpu_prefix}.frontend"
+    xs_fmt: "{perf} .*\\.frontend.*: {stat},\\s+(\\d+)"
+    gem5:
+    xs:
+      validInstrMean: validInstrsDist_mean
+      validInstr0: validInstrsDist_0_1
+      stallCycles_fetch: stallCycles_fetch
+      stallCycles_fetch_ftqNotvalid: stallCycles_fetch_ftqNotvalid
+      stallCycles_fetch_ifuNotReady: stallCycles_fetch_ifuNotReady
+      stallCycles_decodeFull: stallCycles_decodeFull
+      stallCycles_ibufferFull: stallCycles_ibufferFull
+      squashCycles: squashCycles
+      s3Override: s3Override
+
+
   abtb:
     base_gem5: "{gem5_cpu_prefix}.branchPred.abtb"
     xs_fmt: "{perf} .*: {stat},\\s+(\\d+)"
