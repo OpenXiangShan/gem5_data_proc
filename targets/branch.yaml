@@ -124,6 +124,18 @@ groups:
       allocateSuccess: allocate_success
       allocateFailure: allocate_failure
 
+  microtage:
+    base_gem5: "{gem5_cpu_prefix}.branchPred.microtage"
+    xs_fmt: "{perf} .*\\.utage.*: {stat},\\s+(\\d+)"
+    gem5:
+      utage_update_use: updateUtageHit
+      utage_update_hit_wrong: updateUtageHitWrong
+      utage_update_use_abtb_wrong: updateUseAltWrong
+    xs:
+      utage_update_use: use_microtage
+      utage_update_hit_wrong: train_hit_mispred
+      utage_update_use_abtb_wrong: train_miss_hit_mispred
+
   mbtb:
     base_gem5: "{gem5_cpu_prefix}.branchPred.mbtb"
     xs_fmt: "{perf} .*: {stat},\\s+(\\d+)"
