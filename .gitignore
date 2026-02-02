@@ -109,3 +109,5 @@ class_map_min.txt
 *.html
 core_pipeline/
 targets/local/
+
+temp/
