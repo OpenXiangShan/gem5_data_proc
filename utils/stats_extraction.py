@@ -74,6 +74,8 @@ def glob_stats(path: str, fname = 'x'):
     two_layer_pat = re.compile(r'.*/(?P<workload>.*)/(?P<point>\d+)/')
 
     probe_stat_path = find_file_in_maze(path, fname)  # use it to probe the directory layout
+    if probe_stat_path is None:
+        return files
     workload, point, segments = workload_point_frompath(strip_path(probe_stat_path, path))
         
     print(f'workload: {workload}, point: {point}, segments: {segments}')

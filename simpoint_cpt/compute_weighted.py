@@ -32,9 +32,18 @@ def proc_input(wl_df: pd.DataFrame, js: dict, workload: str):
     if args.nix:    # nix path is <num>_<benchmark>_checkpoint
         workload = '_'.join(workload.split('_')[:-1])
     wl_js = dict(js[workload])
-    if 'ipc' in wl_df.columns:
-        wl_df['cpi'] = 1.0/wl_df['ipc']
+    if 'cpi' not in wl_df.columns and 'ipc' in wl_df.columns:
+        wl_df['cpi'] = 1.0 / wl_df['ipc'].replace(0, np.nan)
     if args.score:
+        if 'cpi' not in wl_df.columns:
+            raise SystemExit(
+                f"score requires cpi (or ipc) in input csv; missing for workload: {workload}"
+            )
+        wl_df['cpi'] = pd.to_numeric(wl_df['cpi'], errors='coerce')
+        if wl_df['cpi'].isna().all():
+            raise SystemExit(
+                f"score requires valid cpi values; got all-NaN for workload: {workload}"
+            )
         wl_df['time'] = int(wl_js['insts']) * wl_df['cpi'] / clock_rate
     # print(wl_js['points'])
     vec_weight = pd.DataFrame.from_dict(wl_js['points'], orient='index')

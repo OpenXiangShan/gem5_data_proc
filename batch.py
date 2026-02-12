@@ -373,7 +373,6 @@ def main():
     # for x in df.index:
     #     print(x)
 
-    df = df.fillna(0)
     df = apply_derived_metrics(df, yaml_derived)
 
     # Keep CSV columns in YAML definition order (plus any extra columns at the end),
