@@ -56,9 +56,18 @@ groups:
       commit_branch_mispredicts_reason_BTB: commit_branch_mispredicts_reason_BTB
 
   frontend:
-    base_gem5: "{gem5_cpu_prefix}.frontend"
+    base_gem5: "{gem5_cpu_prefix}"
     xs_fmt: "{perf} .*\\.frontend.*: {stat},\\s+(\\d+)"
     gem5:
+      fetch_nisn_mean: fetch.nisnDist::mean
+      fetch_nisn_0: fetch.nisnDist::0
+      fetch_nisn_total: fetch.nisnDist::total
+      icacheStallCycles: fetch.icacheStallCycles
+      fsqFullFetchHungry: branchPred.fsqFullFetchHungry
+      decodeStallRate: fetch.decodeStallRate
+      fsqNotValid: branchPred.fsqNotValid
+      ftqNotValid: branchPred.ftqNotValid
+      fsqFullCannotEnq: branchPred.fsqFullCannotEnq
     xs:
       validInstrMean: validInstrsDist_mean
       validInstr0: validInstrsDist_0_1
@@ -109,6 +118,7 @@ groups:
       mbtb_update_miss: updateMiss
       predHit: predHit
       updateTotal: updateTotal
+      predMiss: predMiss
     xs:
       predHit: pred_hit
       updateTotal: train_write_new_entry
@@ -126,12 +136,3 @@ groups:
       microtage_MPKI: "condPredwrong * 1000 / 20000000"
       cond_wrong_rate: condPredwrong / (condCorrect + condPredwrong)
 
-  fetch:
-    base_gem5: "{gem5_cpu_prefix}"
-    gem5:
-      fetch_nisn_mean: "fetch.nisnDist::mean"
-      fetch_nisn_0: "fetch.nisnDist::0"
-      fetch_nisn_total: "fetch.nisnDist::total"
-      icacheStallCycles: "fetch.icacheStallCycles"
-      fsqFullFetchHungry: "branchPred.fsqFullFetchHungry"
-      decodeStallRate: "fetch.decodeStallRate"
