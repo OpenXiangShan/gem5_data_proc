@@ -152,19 +152,24 @@ def main() -> None:
         raise SystemExit(f"stat_dir is not a directory: {opt.stat_dir}")
 
     tag = opt.tag or osp.basename(stat_dir.rstrip("/"))
-    archive_path = osp.join(stat_dir, "spec_all.tar.gz")
     working_stat_dir = stat_dir
     fmt = _detect_format(stat_dir, opt.fmt)
+    archive_path = osp.join(stat_dir, "spec_all.tar.gz")
+    spec_all_dir = osp.join(stat_dir, "spec_all")
 
-    if osp.isfile(archive_path):
-        if opt.fmt == "xs":
-            raise SystemExit("spec_all.tar.gz auto-extract only supports gem5 stats")
-        tmpdir = tempfile.mkdtemp(prefix="gem5_ci_stats_")
-        working_stat_dir = _extract_spec_all_stats(archive_path, tmpdir)
-        fmt = "gem5"
-        print(f"Detected archive: {archive_path}")
-        print(f"Extracted stats to: {tmpdir}")
-        print(f"Stats root for parsing: {working_stat_dir}")
+    if fmt == "gem5":
+        # CI gem5 outputs may be either unpacked (spec_all/) or archived (spec_all.tar.gz).
+        if osp.isdir(spec_all_dir):
+            working_stat_dir = spec_all_dir
+            print(f"Detected unpacked directory: {spec_all_dir}")
+        elif osp.isfile(archive_path):
+            tmpdir = tempfile.mkdtemp(prefix="gem5_ci_stats_")
+            working_stat_dir = _extract_spec_all_stats(archive_path, tmpdir)
+            print(f"Detected archive: {archive_path}")
+            print(f"Extracted stats to: {tmpdir}")
+            print(f"Stats root for parsing: {working_stat_dir}")
+    elif osp.isfile(archive_path) and opt.fmt == "xs":
+        raise SystemExit("spec_all.tar.gz auto-extract only supports gem5 stats")
 
     _run_pipeline(
         repo_root=repo_root,
