@@ -27,7 +27,7 @@ def proc_input(wl_df: pd.DataFrame, js: dict, workload: str):
     assert type(wl_df['point'].values[0]) == np.int64
     wl_df = wl_df.sort_values(by=['point'])
     # We also sort the vec_weight by point
-    print('Processing bmk input', workload)
+    # print('Processing bmk input', workload)
     # workload delete the last underscore and the last part
     if args.nix:    # nix path is <num>_<benchmark>_checkpoint
         workload = '_'.join(workload.split('_')[:-1])
@@ -60,11 +60,11 @@ def proc_input(wl_df: pd.DataFrame, js: dict, workload: str):
         wl_df = wl_df[wl_df['point'].isin(valid_points)]
         vec_weight = vec_weight.loc[wl_df['point']]
         if 0 in wl_df['point'].values:
-            print(f"Ignore checkpoint 0 for {workload}")
+            # print(f"Ignore checkpoint 0 for {workload}")
             wl_df = wl_df[wl_df['point'] != 0]
             vec_weight = vec_weight[vec_weight.index != 0]
 
-    print(vec_weight.shape)
+    # print(vec_weight.shape)
     # make their sum equals 1.0
     vec_weight.columns = ['weight']
 
@@ -99,13 +99,13 @@ def proc_bmk(bmk_df: pd.DataFrame, js: dict, bmk: str):
     workloads = bmk_df['workload'].unique()
     metric_list = []
     time = 0
-    print('Processing bmk', bmk)
+    # print('Processing bmk', bmk)
     for wl in workloads:
         metrics, cols = proc_input(bmk_df[bmk_df['workload'] == wl], js, wl)
         if args.score:
             time += metrics[0][np.where(cols.values == 'time')[0][0]]
         metric_list.append(metrics)
-        print(f'{bmk} {wl} {metrics} {cols}')
+        # print(f'{bmk} {wl} {metrics} {cols}')
     metrics = np.concatenate(metric_list, axis=0)
     metrics = pd.DataFrame(metrics, columns=cols)
 
@@ -133,7 +133,7 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
     invalid_rows = df[~df['workload'].isin(valid_workloads)]
     if not invalid_rows.empty:
         dropped = sorted(invalid_rows['workload'].unique().tolist())
-        print(f"Skip workloads missing in weight json: {dropped}")
+        # print(f"Skip workloads missing in weight json: {dropped}")
         df = df[df['workload'].isin(valid_workloads)]
     if df.empty:
         print("All workloads were filtered out; nothing to process.")
@@ -158,7 +158,7 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
             continue
         workloads = df_bmk['workload'].unique()
         n_wl = len(workloads)
-        print(workloads)
+        # print(workloads)
         if n_wl == 0:
             print(f'{bmk} has zero workloads; skip.')
             continue
@@ -181,7 +181,7 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
             bmks_cleaned.append(bmk)
     weighted_df.index = bmks_cleaned
     pd.set_option("display.precision", 3)
-    print(bmks_cleaned)
+    # print(bmks_cleaned)
 
     # sort by int and fp benchmarks, not by cpi
     int_benchmarks = u.spec_bmks[spec_v]['int']
@@ -193,7 +193,7 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
         pass
     else:
         weighted_df = weighted_df.sort_index()
-    print(weighted_df)
+    # print(weighted_df)
     if out_csv is not None:
         weighted_df.to_csv(out_csv)
     if args.score:
@@ -201,7 +201,7 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
         for bmk in weighted_df.index:
             if not score.get(bmk):
                 score[bmk] = {}
-            print(weighted_df.loc[bmk])
+            # print(weighted_df.loc[bmk])
             score[bmk]['time'] = float(weighted_df.loc[bmk, 'time'])
             score[bmk]['ref_time'] = float(reftime_js[bmk])
             score[bmk]['score'] = score[bmk]['ref_time'] / score[bmk]['time']

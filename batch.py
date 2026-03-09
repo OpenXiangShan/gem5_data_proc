@@ -207,7 +207,7 @@ def main():
 
     paths = u.glob_stats(opt.stat_dir, fname=stat_file)
 
-    print(paths)
+    # print(paths)
     if len(paths) == 0:
         import sys
         print(f"Error: No '{stat_file}' found in '{opt.stat_dir}'")
@@ -239,7 +239,7 @@ def main():
             for point, weight in wl_dict['points'].items():
                 possible_paths.append('{}_{}'.format(workload, point))
                 possible_paths.append('{}_{}_{}'.format(workload, point, weight))
-        print(possible_paths)
+        # print(possible_paths)
     # for workload, path in paths:
     def extract_and_post_process(gloabl_dict, workload, path):
         if opt.filter_bmk and not workload.startswith(opt.filter_bmk):
@@ -251,10 +251,10 @@ def main():
         else:
             flag_file = osp.join(osp.dirname(osp.dirname(path)), 'completed')
         if require_flag and not osp.isfile(flag_file):
-            print('Skip unfinished job:', workload, path, flag_file)
+            # print('Skip unfinished job:', workload, path, flag_file)
             return
         
-        print('Process finished job:', workload)
+        # print('Process finished job:', workload)
         # print(workload, path)
         # print(workload)
         if opt.ipc_only:

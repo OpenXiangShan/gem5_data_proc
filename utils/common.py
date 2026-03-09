@@ -226,7 +226,7 @@ def get_raw_stats_around(stat_file: str, insts: int=200*(10**6),
     # p_insts = re.compile('(?:cpus?|switch_cpus_1)\.committedInsts\s+(\d+)\s+#')
     # p_cycles = re.compile('(?:cpus?|switch_cpus_1)\.numCycles\s+(\d+)\s+#')
 
-    print(stat_file)
+    # print(stat_file)
     for line in reverse_readline(expu(stat_file)):
         buff.append(line)
 
