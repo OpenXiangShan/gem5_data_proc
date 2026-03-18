@@ -15,6 +15,8 @@ groups:
       BpIWrong: "branchClassMisses::indirect_jump"
       BpCallWrong: "branchClassMisses::indirect_call"
       BpRetWrong: "branchClassMisses::return"
+      # commit reason (strictly comparable with xs commit_conditional_branch_mispredicts_reason_TAGE)
+      BpBWrongReasonTAGE: "s3PredWrongTage"
       # resolved stats
       BpBWrong2: "controlSquashByClass::cond_branch"
       BpDirectWrong2: "controlSquashByClass::direct_jump"
@@ -96,16 +98,27 @@ groups:
     base_gem5: "{gem5_cpu_prefix}.branchPred.tage"
     xs_fmt: "{perf} .*\\.tage.*: {stat},\\s+(\\d+)"
     gem5:
+      # Approximate mapping: gem5 updateMispred is mixed-granularity (entry/block)
       tage_update_mispred: updateMispred
       updateProviderNa: updateProviderNa
       updateAltDiffers: updateAltDiffers
       updateUseAltCorrect: updateUseAltCorrect
       updateUseAltWrong: updateUseAltWrong
+      # Approximate mapping: model bank conflict vs RTL read conflict are close but not identical
       updateBankConflict: updateBankConflict
       resetUseful: updateResetU
       allocateSuccess: updateAllocSuccess
-      allocateFailure: updateAllocFailure
+      # Stricter mapping to xs allocate_failure (per allocation request failure)
+      allocateFailure: updateAllocFailureNoValidTable
+      # Keep the old per-table-attempt counter for diagnostic use
+      allocateFailure_per_table_attempt: updateAllocFailure
+      # Approximate mapping: gem5 is fetchBlock-level bool, xs is branch-level popcount
+      tage_mispredict_diff: recomputedVsOriginalDiff
     xs:
+      # Approximate counterpart for gem5 tage_update_mispred
+      tage_update_mispred: total_cond_mispredicted
+      # Approximate counterpart for gem5 updateBankConflict
+      updateBankConflict: read_conflict
       tage_mispredict_diff: mispredict_diff
       resetUseful: reset_useful
       allocateSuccess: allocate_success
