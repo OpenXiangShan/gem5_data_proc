@@ -346,8 +346,8 @@ def xs_get_stats(stat_file: str, targets: list,
     desired_keys = set(patterns.keys())
     obtained_keys = set(stats.keys())
     not_found_keys = desired_keys - obtained_keys
-    print("Obtained:", obtained_keys)
-    print("Not found:", not_found_keys)
+    # print("Obtained:", obtained_keys)
+    # print("Not found:", not_found_keys)
 
     # Check if both warmup and main simulation completed (should have 2 commitInstr entries)
     if 'commitInstr' in patterns and commitInstr_count < 2:
@@ -374,7 +374,7 @@ def xs_get_stats(stat_file: str, targets: list,
                 bucket_sum[bucket] = bucket_sum.get(bucket, 0) + s
         check_count = 0
         
-        print(bucket_sum)
+        # print(bucket_sum)
         if tdf is None:
             tdf = pd.DataFrame.from_dict(bucket_sum, orient='index', columns=[lv])
         else:
@@ -382,7 +382,7 @@ def xs_get_stats(stat_file: str, targets: list,
 
         for k, v in bucket_sum.items():
             check_count += v
-        print(f'total access: {total_access}, check count: {check_count}, total match: {total_match}')
+        # print(f'total access: {total_access}, check count: {check_count}, total match: {total_match}')
     
 
     for lv in caches:
@@ -392,8 +392,8 @@ def xs_get_stats(stat_file: str, targets: list,
         tdf[f'{lv}_cum_pct'] = 100*tdf[f'{lv}_cum_sum']/tdf[lv].sum()
         tdf.drop([f'{lv}_cum_sum'], axis=1, inplace=True)
 
-    print(tdf)
-    print(stats)
+    # print(tdf)
+    # print(stats)
 
     if 'ipc' not in stats:
         insts_val = None
