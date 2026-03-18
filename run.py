@@ -84,6 +84,11 @@ def _run_pipeline(
     if fmt == "xs":
         if "-X" not in batch_args and "--xiangshan" not in batch_args:
             batch += ["-X"]
+        if "--json-filter" not in batch_args:
+            # Mixed RTL result directories may contain points from multiple
+            # checkpoint/profile sets. Reuse the weighting JSON as a whitelist
+            # so batch.py only extracts stats for the intended SimPoint slice.
+            batch += ["--json-filter", json_path]
 
     batch += batch_args
     batch += ["-o", csv_path]
