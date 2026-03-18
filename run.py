@@ -8,12 +8,24 @@ import sys
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
-DEFAULT_CLUSTER_JSON = (
-    "/nfs/home/share/checkpoints_profiles/spec06_gcc15_rv64gcb_base_260122/checkpoint-0-0-0/cluster-0-0.json"
-)
+BUILTIN_CLUSTER_JSONS: Dict[str, str] = {
+    "gcc12": (
+        "/nfs/share/zyy/spec06_rv64gcb_O3_20m_gcc12.2.0-intFpcOff-jeMalloc/"
+        "zstd-checkpoint-0-0-0/cluster-0-0.json"
+    ),
+    "gcc15": (
+        "/nfs/home/share/checkpoints_profiles/spec06_gcc15_rv64gcb_base_260122/"
+        "checkpoint-0-0-0/cluster-0-0.json"
+    ),
+    "xscc": (
+        "/nfs/home/share/checkpoints_profiles/spec06_xscc_v1_rv64gcb_base_260122/"
+        "checkpoint-0-0-0/cluster-0-0.json"
+    ),
+}
+DEFAULT_SLICE = "gcc15"
 
 
 def _find_first_file(root: str, filename: str) -> Optional[str]:
@@ -129,10 +141,16 @@ def main() -> None:
         help="stats format (auto detects simulator_err.txt for xs)",
     )
     parser.add_argument(
+        "--slice",
+        choices=sorted(BUILTIN_CLUSTER_JSONS.keys()),
+        default=DEFAULT_SLICE,
+        help=f"built-in SimPoint slice preset (default: {DEFAULT_SLICE})",
+    )
+    parser.add_argument(
         "-j",
         "--json",
-        default=DEFAULT_CLUSTER_JSON,
-        help="SimPoint cluster json path (default: repo script default)",
+        default=None,
+        help="SimPoint cluster json path (overrides --slice)",
     )
     parser.add_argument(
         "--out-dir",
@@ -154,6 +172,10 @@ def main() -> None:
     stat_dir = osp.abspath(opt.stat_dir)
     if not osp.isdir(stat_dir):
         raise SystemExit(f"stat_dir is not a directory: {opt.stat_dir}")
+
+    json_path = osp.abspath(opt.json) if opt.json else BUILTIN_CLUSTER_JSONS[opt.slice]
+    if not osp.isfile(json_path):
+        raise SystemExit(f"cluster json does not exist: {json_path}")
 
     tag = opt.tag or osp.basename(stat_dir.rstrip("/"))
     working_stat_dir = stat_dir
@@ -181,7 +203,7 @@ def main() -> None:
         fmt=fmt,
         out_dir=opt.out_dir,
         tag=tag,
-        json_path=opt.json,
+        json_path=json_path,
         batch_args=batch_args,
     )
     print(f"Stats root for parsing: {working_stat_dir}")

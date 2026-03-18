@@ -33,12 +33,22 @@ batch.py -s /path/to/results/top/directory --cache --branch --xiangshan -f simul
 Use `run.py` to extract CSV and compute weighted + score in one command.
 It auto-detects XS format by searching `simulator_err.txt` in the directory.
 By default it enables all YAML groups (equivalent to `batch.py --groups all`).
+It also provides built-in SimPoint slice presets for mixed RTL result directories.
 
 ``` shell
 python3 run.py /path/to/results/tag --out-dir results
+python3 run.py /path/to/results/tag --out-dir results --slice gcc15
+python3 run.py /path/to/results/tag --out-dir results --slice xscc
 python3 run.py /path/to/results/tag --out-dir results -j /path/to/cluster.json
 python3 run.py /path/to/results/tag --out-dir results -g basic,branch,tage  # override groups
 ```
+
+Notes:
+- `--slice {gcc12,gcc15,xscc}` selects one of the built-in cluster json presets.
+- `-j /path/to/cluster.json` overrides `--slice`.
+- For XS / RTL directories, `run.py` automatically reuses the selected json as
+  `batch.py --json-filter`, so mixed-profile directories are filtered to the
+  intended SimPoint slice before weighting and scoring.
 
 The legacy wrapper is still available (it calls `run.py` internally):
 ``` shell
