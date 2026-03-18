@@ -12,8 +12,7 @@ from typing import List, Optional
 
 
 DEFAULT_CLUSTER_JSON = (
-    "/nfs/share/zyy/spec06_rv64gcb_O3_20m_gcc12.2.0-intFpcOff-jeMalloc/"
-    "zstd-checkpoint-0-0-0/cluster-0-0.json"
+    "/nfs/home/share/checkpoints_profiles/spec06_gcc15_rv64gcb_base_260122/checkpoint-0-0-0/cluster-0-0.json"
 )
 
 
