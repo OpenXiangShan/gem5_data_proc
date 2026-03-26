@@ -76,8 +76,15 @@ python3 run.py /path/to/results --out-dir results -g basic,branch,tage
 Common extra groups:
 ``` shell
 python3 run.py /path/to/results --out-dir results -g basic,branch,fetch
-python3 run.py /path/to/results --out-dir results -g basic,intel_topdown
+python3 run.py /path/to/results --out-dir results -g basic,topdown_intel
+python3 run.py /path/to/results --out-dir results -g basic,branch,bpu
+python3 run.py /path/to/results --out-dir results -g basic,branch,tage_update_tables
 ```
+
+`tage_update_tables` exports update-path TAGE table counters, including
+`updateTableHits::0..7`, `updateTableMispreds::0..7`,
+`updateFinalSourceTableCorrect::0..7`, `updateFinalSourceTableWrong::0..7`,
+and base final-source correct/wrong counters.
 
 Local (not committed) extensions can be put under `targets/local/*.yaml` (gitignored).
 

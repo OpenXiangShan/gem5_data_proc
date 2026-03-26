@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-
-import argparse
-import json
+import html as html_lib
+import os
+import pandas as pd
 import sys
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
@@ -150,10 +150,58 @@ def generate_html(file1, file2, default_group: str = ""):
     meta_json = json.dumps(meta_cols)
     default_group_json = json.dumps(picked_default_group)
 
+    def format_cell(val):
+        if not val:
+            return '<span class="na">N/A</span>'
+        if val.get('only') == 1:
+            return f'<span class="only1">only file1</span><br><span class="val">{val["v1"]:.2f}</span>'
+        if val.get('only') == 2:
+            return f'<span class="only2">only file2</span><br><span class="val">{val["v2"]:.2f}</span>'
+        pct = val.get('pct')
+        if pct is None:
+            return '<span class="na">N/A</span>'
+        sign = "+" if pct >= 0 else ""
+        return f'<span class="pct">{sign}{pct:.2f}%</span><br><span class="val">{val["v1"]:.2f} → {val["v2"]:.2f}</span>'
+
+    static_rows = []
+    for row in data:
+        cells = [f'<td class="bench">{html_lib.escape(str(row.get("benchmark", "")))}</td>']
+        for col in all_cols:
+            cells.append(f'<td>{format_cell(row.get(col))}</td>')
+        static_rows.append("<tr>" + "".join(cells) + "</tr>")
+    static_table_html = (
+        '<div id="static-table-wrapper">'
+        '<table id="static-table">'
+        '<thead><tr>'
+        + ''.join(f'<th>{html_lib.escape(str(h))}</th>' for h in (["Benchmark"] + all_cols))
+        + '</tr></thead>'
+        '<tbody>'
+        + ''.join(static_rows)
+        + '</tbody></table></div>'
+    )
+
+    tabulator_dir = os.path.join(os.path.dirname(__file__), "assets", "tabulator")
+    tabulator_css_path = os.path.join(tabulator_dir, "tabulator.min.css")
+    tabulator_js_path = os.path.join(tabulator_dir, "tabulator.min.js")
+    tabulator_css = None
+    tabulator_js = None
+    if os.path.isfile(tabulator_css_path) and os.path.isfile(tabulator_js_path):
+        with open(tabulator_css_path, "r", encoding="utf-8") as f:
+            tabulator_css = f.read()
+        with open(tabulator_js_path, "r", encoding="utf-8") as f:
+            tabulator_js = f.read()
+    has_tabulator = tabulator_css is not None and tabulator_js is not None
+    tabulator_note = ""
+    if not has_tabulator:
+        tabulator_note = (
+            '<div id="static-note">'
+            'Tabulator assets not found. Showing static table. '
+            'Place assets at assets/tabulator/tabulator.min.{js,css} to enable interactive view.'
+            '</div>'
+        )
+
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Weighted CSV Comparison</title>
-<link href="https://cdn.jsdelivr.net/npm/tabulator-tables@6.2.5/dist/css/tabulator.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6.2.5/dist/js/tabulator.min.js"></script>
 <style>
 body{{font-family:Arial,sans-serif;margin:20px;background:#f5f5f5}}
 h2{{color:#333}}
@@ -166,21 +214,23 @@ h2{{color:#333}}
 .col-hide:hover{{color:#222}}
 #table{{background:white;box-shadow:0 2px 4px rgba(0,0,0,0.1)}}
 .val{{font-size:0.85em;color:#666;display:block}}
+#static-note{{margin:8px 0;color:#666;font-size:12px}}
+#static-table-wrapper{{max-height:80vh;overflow:auto;background:white;box-shadow:0 2px 4px rgba(0,0,0,0.1)}}
+#static-table{{border-collapse:collapse;width:100%}}
+#static-table th,#static-table td{{border:1px solid #ddd;padding:6px;font-size:12px;vertical-align:top}}
+#static-table th{{background:#fafafa;position:sticky;top:0;z-index:1}}
+#static-table .bench{{font-weight:bold;white-space:nowrap}}
+.na{{color:#999}}
+.only1{{color:#ef6c00;font-weight:bold}}
+.only2{{color:#1565c0;font-weight:bold}}
+.pct{{font-weight:bold}}
 </style></head><body>
 <h2>Comparison: {file1.split('/')[-1]} vs {file2.split('/')[-1]}</h2>
-<div id="controls">
-  <div id="groupBox"></div>
-  <label><input type="checkbox" id="showMeta">show meta</label>
-  <label><input type="checkbox" id="onlyChanged">only changed</label>
-  <label>Columns
-    <input type="text" id="colPattern" placeholder="substring (case-sensitive)">
-  </label>
-  <button id="hideMatched" type="button">hide matched</button>
-  <button id="showMatched" type="button">show matched</button>
-  <button id="resetHidden" type="button">reset hidden</button>
-  <button id="exportCsv" type="button">export csv</button>
-</div>
+{tabulator_note}
 <div id="table"></div>
+{static_table_html}
+{"<style>" + tabulator_css + "</style>" if has_tabulator else ""}
+{"<script>" + tabulator_js + "</script>" if has_tabulator else ""}
 <script>
 const data = {data_json};
 const allCols = {cols_json};
@@ -244,170 +294,20 @@ allCols.forEach(col => {{
         }}
     }});
 }});
-const table = new Tabulator("#table", {{
-    data: data,
-    columns: columns,
-    layout: "fitData",
-    movableColumns: true,
-    height: "80vh"
-}});
-
-// Click the small "x" in a column header to hide that column.
-document.getElementById("table").addEventListener("click", (e) => {{
-  const t = e.target;
-  if (t && t.classList && t.classList.contains("col-hide")) {{
-    const col = t.getAttribute("data-col");
-    if (col) {{
-      hiddenByUser.add(col);
-      updateVisibility();
-    }}
-    e.stopPropagation();
-  }}
-}});
-
-function updateVisibility() {{
-  const selected = Array.from(document.querySelectorAll("#groupBox input[data-group]:checked")).map(x => x.getAttribute("data-group"));
-  const showMeta = document.getElementById("showMeta").checked;
-  const onlyChanged = document.getElementById("onlyChanged").checked;
-
-  let visible = new Set();
-  if (selected.includes("all") || selected.length === 0) {{
-    for (const c of allCols) visible.add(c);
-  }} else {{
-    for (const g of selected) {{
-      const cols = groupToCols[g] || [];
-      for (const c of cols) visible.add(c);
-    }}
-  }}
-  if (showMeta) {{
-    for (const c of metaCols) visible.add(c);
-  }}
-  if (onlyChanged) {{
-    visible = new Set([...visible].filter(c => changedCols.has(c)));
-  }}
-
-  for (const col of allCols) {{
-    const shouldShow = visible.has(col) && !hiddenByUser.has(col);
-    if (shouldShow) {{
-      table.showColumn(col);
-    }} else {{
-      table.hideColumn(col);
-    }}
-  }}
+const tableEl = document.getElementById("table");
+const staticEl = document.getElementById("static-table-wrapper");
+if (typeof Tabulator === "undefined") {{
+    if (tableEl) tableEl.style.display = "none";
+}} else {{
+    if (staticEl) staticEl.style.display = "none";
+    new Tabulator("#table", {{
+        data: data,
+        columns: columns,
+        layout: "fitData",
+        movableColumns: true,
+        height: "80vh"
+    }});
 }}
-
-function initControls() {{
-  const box = document.getElementById("groupBox");
-  function addGroupCheckbox(name, checked) {{
-    const label = document.createElement("label");
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.setAttribute("data-group", name);
-    input.checked = !!checked;
-    label.appendChild(input);
-    const t = document.createTextNode(name);
-    label.appendChild(t);
-    box.appendChild(label);
-    return input;
-  }}
-
-  const allCb = addGroupCheckbox("all", false);
-  const groupCbs = {{}};
-  for (const g of groups) {{
-    groupCbs[g] = addGroupCheckbox(g, false);
-  }}
-
-  const preferred = (defaultGroup === "all" || groups.includes(defaultGroup)) ? defaultGroup : "all";
-  if (preferred === "all") {{
-    allCb.checked = true;
-  }} else {{
-    groupCbs[preferred].checked = true;
-  }}
-
-  function normalizeSelection(changed) {{
-    if (changed === "all" && allCb.checked) {{
-      for (const g of groups) groupCbs[g].checked = false;
-    }} else if (changed !== "all" && groupCbs[changed] && groupCbs[changed].checked) {{
-      allCb.checked = false;
-    }}
-    updateVisibility();
-  }}
-
-  allCb.addEventListener("change", () => normalizeSelection("all"));
-  for (const g of groups) {{
-    groupCbs[g].addEventListener("change", () => normalizeSelection(g));
-  }}
-
-  document.getElementById("showMeta").addEventListener("change", updateVisibility);
-  document.getElementById("onlyChanged").addEventListener("change", updateVisibility);
-
-  function hideOrShowMatched(mode) {{
-    const pat = document.getElementById("colPattern").value || "";
-    const matched = pat ? allCols.filter(c => c.includes(pat)) : [];
-    if (!matched.length) return;
-    for (const c of matched) {{
-      if (mode === "hide") hiddenByUser.add(c);
-      if (mode === "show") hiddenByUser.delete(c);
-    }}
-    updateVisibility();
-  }}
-  document.getElementById("hideMatched").addEventListener("click", () => hideOrShowMatched("hide"));
-  document.getElementById("showMatched").addEventListener("click", () => hideOrShowMatched("show"));
-  document.getElementById("resetHidden").addEventListener("click", () => {{
-    hiddenByUser.clear();
-    document.getElementById("colPattern").value = "";
-    updateVisibility();
-  }});
-
-  function csvEscape(s) {{
-    const needs = /[\",\\n\\r]/.test(s);
-    if (!needs) return s;
-    return '\"' + s.replace(/\"/g, '\"\"') + '\"';
-  }}
-
-  function fmtCell(v) {{
-    if (!v) return "";
-    if (v.only === 1) return "only file1 (" + v.v1.toFixed(2) + ")";
-    if (v.only === 2) return "only file2 (" + v.v2.toFixed(2) + ")";
-    if (typeof v.pct !== "number") return "";
-    const pct = v.pct;
-    const sign = pct >= 0 ? "+" : "";
-    return sign + pct.toFixed(2) + "% (" + v.v1.toFixed(2) + " -> " + v.v2.toFixed(2) + ")";
-  }}
-
-  function exportCsv() {{
-    const cols = [];
-    for (const c of table.getColumns()) {{
-      if (c.isVisible && c.isVisible()) cols.push(c.getField());
-    }}
-    const rows = table.getData("active");
-    const header = cols.map(csvEscape).join(",") + "\\n";
-    let body = "";
-    for (const r of rows) {{
-      const line = cols.map(f => {{
-        const v = r[f];
-        if (f === "benchmark") return csvEscape(String(v ?? ""));
-        return csvEscape(fmtCell(v));
-      }}).join(",");
-      body += line + "\\n";
-    }}
-    const csv = header + body;
-    const blob = new Blob([csv], {{type: "text/csv;charset=utf-8"}});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "diff.csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }}
-  document.getElementById("exportCsv").addEventListener("click", exportCsv);
-
-  updateVisibility();
-}}
-
-initControls();
 </script></body></html>"""
     return html
 
