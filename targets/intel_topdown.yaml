@@ -34,23 +34,21 @@ groups:
       mem_stall_l1miss: mem_stall_l1miss
       mem_stall_l2miss: mem_stall_l2miss
       mem_stall_l3miss: mem_stall_l3miss
-
-  topdown:
-    base_gem5: "{gem5_cpu_prefix}"
-    xs_fmt: "{perf} .*: {stat},\\s+(\\d+)"
-    gem5:
-      baseRetiring: "baseRetiring"
-      frontendBound: "frontendBound"
-      frontendLatencyBound: "frontendLatencyBound"
-      frontendBandwidthBound: "frontendBandwidthBound"
-      badSpecBound: "badSpecBound"
-      branchMissPrediction: "branchMissPrediction"
-      machineClears: "machineClears"
-      backendBound: "backendBound"
-      coreBound: "coreBound"
-      memoryBound: "memoryBound"
-      l1Bound: "l1Bound"
-      l2Bound: "l2Bound"
-      l3Bound: "l3Bound"
-      memBound: "memBound"
-      storeBound: "storeBound"
+    derived:
+      # ISSUEBW=8, INST_RETIRED=20M (fixed), CPU_CYCLES=cycles, TOTAL_FLUSH=total_squash
+      baseRetiring: "20000000 / (8 * cycles)"
+      frontendBound: "fetch_bubble / (8 * cycles)"
+      frontendLatencyBound: "fetch_bubble_eq_max / cycles"
+      frontendBandwidthBound: "fetch_bubble / (8 * cycles) - fetch_bubble_eq_max / cycles"
+      badSpecBound: "(inst_spec - 20000000 + recovery_bubble) / (8 * cycles)"
+      branchMissPrediction: "((inst_spec - 20000000 + recovery_bubble) / (8 * cycles)) * br_mis_pred / total_squash"
+      machineClears: "((inst_spec - 20000000 + recovery_bubble) / (8 * cycles)) * (1 - br_mis_pred / total_squash)"
+      backendBound: "1 - (fetch_bubble + inst_spec + recovery_bubble) / (8 * cycles)"
+      coreBound: "(exec_stall_cycle - mem_stall_any_load - mem_stall_store) / cycles"
+      memoryBound: "(mem_stall_any_load + mem_stall_store) / cycles"
+      l1Bound: "(mem_stall_any_load - mem_stall_l1miss) / cycles"
+      l2Bound: "(mem_stall_l1miss - mem_stall_l2miss) / cycles"
+      l3Bound: "(mem_stall_l2miss - mem_stall_l3miss) / cycles"
+      memBound: "mem_stall_l3miss / cycles"
+      storeBound: "mem_stall_store / cycles"
+  

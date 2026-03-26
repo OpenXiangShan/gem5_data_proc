@@ -89,12 +89,10 @@ groups:
       s1UseUBTB: S0PredUseUBTB
       s1UseABTB: S0PredUseABTB
       s1UseFallThrough: S0Predmiss
-      predHitEntry: predHitBpRetWrong 
     xs:
       s1UseUBTB: s1_use_ubtb
       s1UseABTB: s1_use_abtb
       s1UseFallThrough: s1_use_fallThrough
-      predHitEntry: predict_hit_entry_num
 
   tage:
     base_gem5: "{gem5_cpu_prefix}.branchPred.tage"
@@ -126,44 +124,6 @@ groups:
       allocateSuccess: allocate_success
       allocateFailure: allocate_failure
 
-  tage_update_tables:
-    base_gem5: "{gem5_cpu_prefix}.branchPred.tage"
-    gem5:
-      tage_update_table_0_hits: "updateTableHits::0"
-      tage_update_table_1_hits: "updateTableHits::1"
-      tage_update_table_2_hits: "updateTableHits::2"
-      tage_update_table_3_hits: "updateTableHits::3"
-      tage_update_table_4_hits: "updateTableHits::4"
-      tage_update_table_5_hits: "updateTableHits::5"
-      tage_update_table_6_hits: "updateTableHits::6"
-      tage_update_table_7_hits: "updateTableHits::7"
-      tage_update_table_0_mispreds: "updateTableMispreds::0"
-      tage_update_table_1_mispreds: "updateTableMispreds::1"
-      tage_update_table_2_mispreds: "updateTableMispreds::2"
-      tage_update_table_3_mispreds: "updateTableMispreds::3"
-      tage_update_table_4_mispreds: "updateTableMispreds::4"
-      tage_update_table_5_mispreds: "updateTableMispreds::5"
-      tage_update_table_6_mispreds: "updateTableMispreds::6"
-      tage_update_table_7_mispreds: "updateTableMispreds::7"
-      tage_update_final_source_table_0_correct: "updateFinalSourceTableCorrect::0"
-      tage_update_final_source_table_1_correct: "updateFinalSourceTableCorrect::1"
-      tage_update_final_source_table_2_correct: "updateFinalSourceTableCorrect::2"
-      tage_update_final_source_table_3_correct: "updateFinalSourceTableCorrect::3"
-      tage_update_final_source_table_4_correct: "updateFinalSourceTableCorrect::4"
-      tage_update_final_source_table_5_correct: "updateFinalSourceTableCorrect::5"
-      tage_update_final_source_table_6_correct: "updateFinalSourceTableCorrect::6"
-      tage_update_final_source_table_7_correct: "updateFinalSourceTableCorrect::7"
-      tage_update_final_source_table_0_wrong: "updateFinalSourceTableWrong::0"
-      tage_update_final_source_table_1_wrong: "updateFinalSourceTableWrong::1"
-      tage_update_final_source_table_2_wrong: "updateFinalSourceTableWrong::2"
-      tage_update_final_source_table_3_wrong: "updateFinalSourceTableWrong::3"
-      tage_update_final_source_table_4_wrong: "updateFinalSourceTableWrong::4"
-      tage_update_final_source_table_5_wrong: "updateFinalSourceTableWrong::5"
-      tage_update_final_source_table_6_wrong: "updateFinalSourceTableWrong::6"
-      tage_update_final_source_table_7_wrong: "updateFinalSourceTableWrong::7"
-      tage_update_final_source_base_correct: updateFinalSourceBaseCorrect
-      tage_update_final_source_base_wrong: updateFinalSourceBaseWrong
-
   microtage:
     base_gem5: "{gem5_cpu_prefix}.branchPred.microtage"
     xs_fmt: "{perf} .*\\.utage.*: {stat},\\s+(\\d+)"
@@ -171,15 +131,6 @@ groups:
       utage_update_use: updateUtageHit
       utage_update_hit_wrong: updateUtageHitWrong
       utage_update_use_abtb_wrong: updateUseAltWrong
-      utage_pred_hit: predHit
-      utage_pred_miss: predMiss
-      utage_pred_use_alt: predUseAlt
-      utage_update_mispred: updateMispred
-      utage_update_alloc_success: updateAllocSuccess
-      utage_update_alloc_failure: updateAllocFailure
-      utage_reset_useful: updateResetU
-      utage_update_alt_correct: updateUseAltCorrect
-      utage_update_alt_on_na_wrong: updateUseAltOnNaWrong
     xs:
       utage_update_use: use_microtage
       utage_update_hit_wrong: train_hit_mispred
@@ -204,10 +155,9 @@ groups:
     base_gem5: "{gem5_cpu_prefix}.branchPred.microtage"
     xs_fmt: "{perf} .*: {stat},\\s+(\\d+)"
     gem5:
-      fetch_nisn_mean: "fetch.nisnDist::mean"
-      fetch_nisn_0: "fetch.nisnDist::0"
-      fetch_nisn_total: "fetch.nisnDist::total"
-      icacheStallCycles: "fetch.icacheStallCycles"
-      fsqFullFetchHungry: "branchPred.fsqFullFetchHungry"
-      fsqFullCannotEnq: "branchPred.fsqFullCannotEnq"
-      decodeStallRate: "fetch.decodeStallRate"
+      condPredwrong: condPredwrong
+      condCorrect: condCorrect
+    derived:
+      microtage_MPKI: "condPredwrong * 1000 / 20000000"
+      cond_wrong_rate: condPredwrong / (condCorrect + condPredwrong)
+
