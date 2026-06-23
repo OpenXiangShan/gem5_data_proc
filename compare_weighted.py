@@ -133,7 +133,8 @@ def generate_html(file1, file2, default_group: str = ""):
             if pd.isna(v2): v2 = None
             if v1 is not None and v2 is not None:
                 if v1 == 0:
-                    row_data[col] = None
+                    pct = 0.0 if v2 == 0 else None
+                    row_data[col] = {'pct': pct, 'v1': float(v1), 'v2': float(v2), 'zero_base': True}
                 else:
                     pct = ((v2 - v1) / v1) * 100
                     row_data[col] = {'pct': float(pct), 'v1': float(v1), 'v2': float(v2)}
@@ -233,6 +234,10 @@ allCols.forEach(col => {{
                 return `<div style="background:#e3f2fd;padding:4px"><b>仅file2</b><span class="val">${{val.v2.toFixed(2)}}</span></div>`;
             }}
             const pct = val.pct;
+            if (val.zero_base && typeof pct !== "number") {{
+                return `<div style="background:#fff8e1;padding:4px"><b>N/A</b>
+                <span class="val">${{val.v1.toFixed(2)}} → ${{val.v2.toFixed(2)}}</span></div>`;
+            }}
             const color = pct > 0 ? '#e8f5e9' : pct < 0 ? '#ffebee' : '#fff';
             const barWidth = Math.min(Math.abs(pct) / 100 * 100, 100);
             const barColor = pct > 0 ? '#4CAF50' : '#f44336';
@@ -369,6 +374,7 @@ function initControls() {{
     if (!v) return "";
     if (v.only === 1) return "only file1 (" + v.v1.toFixed(2) + ")";
     if (v.only === 2) return "only file2 (" + v.v2.toFixed(2) + ")";
+    if (v.zero_base && typeof v.pct !== "number") return "N/A (" + v.v1.toFixed(2) + " -> " + v.v2.toFixed(2) + ")";
     if (typeof v.pct !== "number") return "";
     const pct = v.pct;
     const sign = pct >= 0 ? "+" : "";
