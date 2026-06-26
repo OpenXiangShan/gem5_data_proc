@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 
 import argparse
+from datetime import datetime
 import json
+import socket
 import sys
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import time
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 import pandas as pd
+
+
+def log(msg: str) -> None:
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{ts}] {msg}", flush=True)
 
 
 def _load_group_columns(repo_root: Path) -> dict:
@@ -52,15 +60,73 @@ def _load_group_columns(repo_root: Path) -> dict:
 
 class ComparisonHandler(BaseHTTPRequestHandler):
     html_content = ""
+    health = {}
 
     def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html; charset=utf-8')
-        self.end_headers()
-        self.wfile.write(self.html_content.encode())
+        self._serve_request(write_body=True)
+
+    def do_HEAD(self):
+        self._serve_request(write_body=False)
+
+    def _serve_request(self, write_body: bool):
+        started = time.monotonic()
+        path = self.path.split("?", 1)[0]
+        method = self.command
+        status = 200
+        body = b""
+        content_type = "text/html; charset=utf-8"
+        error = ""
+
+        try:
+            if path in {"/", "/index.html"}:
+                body = self.html_content.encode()
+            elif path == "/healthz":
+                content_type = "application/json; charset=utf-8"
+                payload = dict(self.health)
+                payload["status"] = "ok"
+                payload["uptime_sec"] = round(time.monotonic() - payload.get("started_at", time.monotonic()), 3)
+                body = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()
+            elif path == "/favicon.ico":
+                status = 204
+            else:
+                status = 404
+                content_type = "text/plain; charset=utf-8"
+                body = b"not found\n"
+
+            self.send_response(status)
+            if status != 204:
+                self.send_header("Content-type", content_type)
+                self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            if body and write_body:
+                self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError) as exc:
+            error = f" client_disconnected={type(exc).__name__}"
+        except Exception as exc:
+            error = f" error={type(exc).__name__}: {exc}"
+            raise
+        finally:
+            elapsed_ms = (time.monotonic() - started) * 1000
+            host, port = self.client_address[:2]
+            ua = self.headers.get("User-Agent", "-")
+            log(
+                f"{method} {path} from {host}:{port} status={status} bytes={len(body)} "
+                f"elapsed_ms={elapsed_ms:.1f} ua={ua!r}{error}"
+            )
 
     def log_message(self, format, *args):
         pass
+
+
+def read_csv_with_log(path: str, label: str) -> pd.DataFrame:
+    started = time.monotonic()
+    df = pd.read_csv(path, index_col=0)
+    elapsed_ms = (time.monotonic() - started) * 1000
+    log(
+        f"loaded {label}: path={Path(path)} rows={len(df)} cols={len(df.columns)} "
+        f"elapsed_ms={elapsed_ms:.1f}"
+    )
+    return df
 
 
 def _pick_default_group(group_to_cols: dict, available_cols: list, preferred: str) -> str:
@@ -81,8 +147,8 @@ def _pick_default_group(group_to_cols: dict, available_cols: list, preferred: st
 
 
 def generate_html(file1, file2, default_group: str = ""):
-    df1 = pd.read_csv(file1, index_col=0)
-    df2 = pd.read_csv(file2, index_col=0)
+    df1 = read_csv_with_log(file1, "file1")
+    df2 = read_csv_with_log(file2, "file2")
 
     all_cols_raw = list(df1.columns.union(df2.columns, sort=False))
 
@@ -150,6 +216,14 @@ def generate_html(file1, file2, default_group: str = ""):
     groups_json = json.dumps(list(group_to_cols.keys()))
     meta_json = json.dumps(meta_cols)
     default_group_json = json.dumps(picked_default_group)
+
+    log(
+        "comparison summary: "
+        f"rows={len(all_rows)} cols={len(all_cols)} groups={len(group_to_cols)} "
+        f"default_group={picked_default_group!r} "
+        f"only_in_file1={len(only_in_file1)} only_in_file2={len(only_in_file2)} "
+        f"cols_only_in_file1={len(cols_only_in_file1)} cols_only_in_file2={len(cols_only_in_file2)}"
+    )
 
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Weighted CSV Comparison</title>
@@ -417,6 +491,59 @@ initControls();
 </script></body></html>"""
     return html
 
+
+def print_access_hint(host: str, port: int) -> None:
+    hostname = socket.gethostname()
+    print("=" * 72, flush=True)
+    print("服务器启动，浏览器打开:", flush=True)
+    print(f"http://localhost:{port}", flush=True)
+    print("=" * 72, flush=True)
+    log(f"server listening: host={host!r} port={port} hostname={hostname}")
+    log(f"remote self-check: curl http://127.0.0.1:{port}/healthz")
+    if host in {"", "0.0.0.0"}:
+        log(f"remote URL if directly reachable: http://{hostname}:{port}")
+    log(
+        "SSH tunnel hint: "
+        f"ssh -L {port}:127.0.0.1:{port} <user>@{hostname} "
+        f"then open http://localhost:{port}"
+    )
+
+
+def serve(html: str) -> None:
+    host = "127.0.0.1"
+    port = 8000
+    ComparisonHandler.html_content = html
+    ComparisonHandler.health = {
+        "started_at": time.monotonic(),
+        "html_bytes": len(html.encode()),
+        "host": host,
+    }
+
+    candidate_ports = range(port, port + 100)
+    last_error = None
+    for candidate in candidate_ports:
+        try:
+            server = ThreadingHTTPServer((host, candidate), ComparisonHandler)
+        except OSError as exc:
+            last_error = exc
+            log(f"port unavailable: host={host!r} port={candidate} error={exc}")
+            continue
+
+        ComparisonHandler.health["port"] = candidate
+        print_access_hint(host, candidate)
+        log("press Ctrl+C to stop server")
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            log("server stopped by Ctrl+C")
+        finally:
+            server.server_close()
+            log("server closed")
+        return
+
+    raise SystemExit(f"failed to bind server starting at port {port}: {last_error}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compare two weighted CSVs in a local web UI")
     parser.add_argument("file1", help="baseline csv (weighted)")
@@ -428,19 +555,6 @@ if __name__ == "__main__":
     )
     opt = parser.parse_args()
 
-    ComparisonHandler.html_content = generate_html(opt.file1, opt.file2, default_group=opt.default_group)
-
-    for port in range(8000, 8100):
-        try:
-            server = HTTPServer(('', port), ComparisonHandler)
-            print(f"服务器启动: http://localhost:{port}")
-            print("按 Ctrl+C 停止服务器")
-            try:
-                server.serve_forever()
-            except KeyboardInterrupt:
-                print("\n服务器停止")
-            finally:
-                server.server_close()
-            break
-        except OSError:
-            continue
+    html_content = generate_html(opt.file1, opt.file2, default_group=opt.default_group)
+    log(f"generated html: bytes={len(html_content.encode())}")
+    serve(html_content)
