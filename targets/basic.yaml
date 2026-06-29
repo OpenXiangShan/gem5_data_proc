@@ -9,7 +9,8 @@ groups:
   basic:
     base_gem5: "{gem5_cpu_prefix}"
     gem5:
-      ipc: ipc
+      # totalIpc equals ipc for single-thread runs and covers SMT total throughput.
+      ipc: totalIpc
       committedInsts: committedInsts
       cycles: numCycles
     xs:
