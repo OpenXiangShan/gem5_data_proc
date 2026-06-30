@@ -245,18 +245,18 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
             print(f'================ Int =================')
             print(intdf)
             if not np.isnan(int_avg):
-                print('Estimated Int GHz:', int_avg)
+                print('Estimated Int score per GHz:', int_avg)
                 print(f'Estimated Int {clock_rate/(10**9)}GHz:', int_avg*(clock_rate/(10**9)))
         if not args.int_only:
             fpdf = score.loc[[b for b in fp_bmks if b in score.index]]
             print(f'================ FP =================')
             print(fpdf)
             if not np.isnan(fp_avg):
-                print('Estimated FP GHz:', fp_avg)
+                print('Estimated FP score per GHz:', fp_avg)
                 print(f'Estimated FP {clock_rate/(10**9)}GHz:', fp_avg*(clock_rate/(10**9)))
         if not args.int_only and not args.fp_only:
             print(f'================ Overall =================')
-            print('Estimated overall GHz:', overall_avg)
+            print('Estimated overall score per GHz:', overall_avg)
             print(f'Estimated overall {clock_rate/(10**9)}GHz:', overall_avg*(clock_rate/(10**9)))
 
         if args.score is not None:
