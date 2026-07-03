@@ -17,8 +17,7 @@ BUILTIN_CLUSTER_JSONS: Dict[str, str] = {
         "zstd-checkpoint-0-0-0/cluster-0-0.json"
     ),
     "gcc15": (
-        "/nfs/home/share/checkpoints_profiles/spec06_gcc15_rv64gcb_base_260122/"
-        "checkpoint-0-0-0/cluster-0-0.json"
+        "/nfs/home/share/checkpoints_profiles/spec06_gcc15_rv64gcb_base_260604/json/checkpoints_all.json"
     ),
     "xscc": (
         "/nfs/home/share/checkpoints_profiles/spec06_xscc_v1_rv64gcb_base_260122/"
