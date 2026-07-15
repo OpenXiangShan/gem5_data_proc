@@ -29,6 +29,38 @@ spec_bmks = {
             'int': ['perlbench', 'gcc', 'mcf', 'omnetpp', 'xalancbmk', 'x264', 'deepsjeng', 'leela', 'exchange2', 'xz'],
             'float': ['bwaves', 'cactuBSSN', 'namd', 'parest', 'povray', 'lbm', 'wrf', 'blender', 'cam4', 'imagick', 'nab', 'fotonik3d', 'roms'],
             },
+        '26': {
+            'int': [
+                '706.stockfish',
+                '707.ntest',
+                '708.sqlite',
+                '710.omnetpp',
+                '714.cpython',
+                '721.gcc',
+                '723.llvm',
+                '727.cppcheck',
+                '729.abc',
+                '734.vpr',
+                '735.gem5',
+                '750.sealcrypto',
+                '753.ns3',
+                '777.zstd',
+                ],
+            'float': [
+                '709.cactus',
+                '722.palm',
+                '731.astcenc',
+                '736.ocio',
+                '737.gmsh',
+                '748.flightdm',
+                '749.fotonik3d',
+                '765.roms',
+                '766.femflow',
+                '767.nest',
+                '772.marian',
+                '782.lbm',
+                ],
+            },
         }
 
 def get_insts(fname: str):
