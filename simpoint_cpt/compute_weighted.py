@@ -25,7 +25,7 @@ def proc_input(wl_df: pd.DataFrame, js: dict, workload: str):
     # To make sure the matrix_perf is in the same order as the vec_weight,
     # we sort the matrix_perf by point
     assert type(wl_df['point'].values[0]) == np.int64
-    wl_df = wl_df.sort_values(by=['point'])
+    wl_df = wl_df.sort_values(by=['point']).copy()
     # We also sort the vec_weight by point
     # print('Processing bmk input', workload)
     # workload delete the last underscore and the last part
