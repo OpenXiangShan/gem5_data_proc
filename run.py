@@ -17,14 +17,19 @@ BUILTIN_CLUSTER_JSONS: Dict[str, str] = {
         "zstd-checkpoint-0-0-0/cluster-0-0.json"
     ),
     "gcc15": (
-        "/nfs/home/share/checkpoints_profiles/spec06_gcc15_rv64gcb_base_260604/json/checkpoints_all.json"
+        "/nfs/home/share/checkpoints_profiles/spec06_gcc15_rv64gcb_base_260604/"
+        "json/checkpoints_all.json"
+    ),
+    "gcc16": (
+        "/nfs/home/share/checkpoints_profiles/spec06_gcc16_rva23_novec_260820/"
+        "json/checkpoints_all.json"
     ),
     "xscc": (
         "/nfs/home/share/checkpoints_profiles/spec06_xscc_v1_rv64gcb_base_260122/"
         "checkpoint-0-0-0/cluster-0-0.json"
     ),
 }
-DEFAULT_SLICE = "gcc15"
+DEFAULT_BENCHMARK_TYPE = "gcc15"
 
 
 def _find_first_file(root: str, filename: str) -> Optional[str]:
@@ -32,6 +37,36 @@ def _find_first_file(root: str, filename: str) -> Optional[str]:
         if filename in files:
             return osp.join(dirpath, filename)
     return None
+
+
+def _find_benchmark_type(stat_dir: str) -> Optional[str]:
+    stat_path = Path(stat_dir)
+    metadata_paths = [stat_path / "metadata.txt"]
+    if stat_path.name == "spec_all":
+        metadata_paths.append(stat_path.parent / "metadata.txt")
+
+    for metadata_path in metadata_paths:
+        if not metadata_path.is_file():
+            continue
+        with metadata_path.open() as metadata:
+            for line in metadata:
+                key, separator, value = line.partition(":")
+                if separator and key.strip() == "benchmark_type":
+                    benchmark_type = value.strip()
+                    return benchmark_type or None
+    return None
+
+
+def _profile_for_benchmark_type(benchmark_type: str) -> str:
+    benchmark_type_lower = benchmark_type.lower()
+    for profile in BUILTIN_CLUSTER_JSONS:
+        if profile in benchmark_type_lower:
+            return profile
+    supported = ", ".join(sorted(BUILTIN_CLUSTER_JSONS))
+    raise ValueError(
+        f"unsupported benchmark_type '{benchmark_type}'; "
+        f"use one of {{{supported}}} or pass -j explicitly"
+    )
 
 
 def _extract_spec_all_stats(archive_path: str, out_dir: str) -> str:
@@ -140,16 +175,21 @@ def main() -> None:
         help="stats format (auto detects simulator_err.txt for xs)",
     )
     parser.add_argument(
+        "--benchmark-type",
         "--slice",
-        choices=sorted(BUILTIN_CLUSTER_JSONS.keys()),
-        default=DEFAULT_SLICE,
-        help=f"built-in SimPoint slice preset (default: {DEFAULT_SLICE})",
+        dest="benchmark_type",
+        default=None,
+        metavar="TYPE",
+        help=(
+            "benchmark type or profile preset; auto-detected from metadata.txt "
+            f"when omitted (fallback: {DEFAULT_BENCHMARK_TYPE})"
+        ),
     )
     parser.add_argument(
         "-j",
         "--json",
         default=None,
-        help="SimPoint cluster json path (overrides --slice)",
+        help="SimPoint cluster json path (overrides --benchmark-type)",
     )
     parser.add_argument(
         "--out-dir",
@@ -172,7 +212,21 @@ def main() -> None:
     if not osp.isdir(stat_dir):
         raise SystemExit(f"stat_dir is not a directory: {opt.stat_dir}")
 
-    json_path = osp.abspath(opt.json) if opt.json else BUILTIN_CLUSTER_JSONS[opt.slice]
+    if opt.json:
+        json_path = osp.abspath(opt.json)
+    else:
+        benchmark_type = opt.benchmark_type or _find_benchmark_type(stat_dir)
+        if benchmark_type is None:
+            benchmark_type = DEFAULT_BENCHMARK_TYPE
+            print(f"No benchmark_type metadata found; default to: {benchmark_type}")
+        elif opt.benchmark_type is None:
+            print(f"Detected benchmark_type from metadata: {benchmark_type}")
+        try:
+            profile = _profile_for_benchmark_type(benchmark_type)
+        except ValueError as error:
+            raise SystemExit(str(error)) from error
+        json_path = BUILTIN_CLUSTER_JSONS[profile]
+        print(f"Using built-in profile '{profile}': {json_path}")
     if not osp.isfile(json_path):
         raise SystemExit(f"cluster json does not exist: {json_path}")
 
