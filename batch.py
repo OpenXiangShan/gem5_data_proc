@@ -191,10 +191,16 @@ def main():
     if not selected_groups:
         raise SystemExit("empty --groups is not supported; use at least 'basic'")
 
+    xs_stat_fmt = opt.xiangshan or opt.old_xs
     loaded = yaml_load_groups(target_dirs, selected_groups)
     yaml_gem5_targets = loaded.gem5_targets
     yaml_xs_targets = loaded.xs_targets
-    yaml_derived = loaded.derived
+    backend_derived = (
+        loaded.derived_xs if xs_stat_fmt else loaded.derived_gem5
+    )
+    # Backend-specific aliases are evaluated first so common expressions can
+    # consume a normalized column regardless of the input stat format.
+    yaml_derived = {**backend_derived, **loaded.derived}
 
     add_nanhu_multicore_ipc_targets(opt.num_cores)
 
@@ -224,8 +230,6 @@ def main():
         all_bmk_dict = {}
 
     require_flag = False
-    xs_stat_fmt = opt.xiangshan or opt.old_xs
-
     if xs_stat_fmt:
         prefix = 'xs_'
     else:

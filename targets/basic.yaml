@@ -11,8 +11,10 @@ groups:
     gem5:
       # totalIpc equals ipc for single-thread runs and covers SMT total throughput.
       ipc: totalIpc
-      committedInsts: committedInsts
       cycles: numCycles
+    gem5_regex:
+      # Match the scalar stat in single-thread runs and only ::total in SMT.
+      committedInsts: 'system\.cpu\.committedInsts(?:::total)?'
     xs:
       committedInsts: "{perf} .*\\.rob.*: commitInstr,\\s+(\\d+)"
       cycles: "{perf} .*\\.rob.*: clock_cycle,\\s+(\\d+)"

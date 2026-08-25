@@ -37,6 +37,8 @@ class LoadedYamlTargets:
     groups: List[str]
     gem5_targets: Dict[str, str]
     xs_targets: Dict[str, str]
+    derived_gem5: Dict[str, str]
+    derived_xs: Dict[str, str]
     derived: Dict[str, str]
     # Ordered columns as they appear in YAML across selected groups/files.
     column_order: List[str]
@@ -53,8 +55,25 @@ def _load_yaml_file(path: str) -> dict:
             "`python3 -m pip install pyyaml`"
         ) from e
 
+    class UniqueKeyLoader(yaml.SafeLoader):
+        pass
+
+    def construct_unique_mapping(loader, node, deep=False):
+        mapping = {}
+        for key_node, value_node in node.value:
+            key = loader.construct_object(key_node, deep=deep)
+            if key in mapping:
+                raise ValueError(f"duplicate YAML key {key!r} in {path}")
+            mapping[key] = loader.construct_object(value_node, deep=deep)
+        return mapping
+
+    UniqueKeyLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+        construct_unique_mapping,
+    )
+
     with open(path, "r") as f:
-        data = yaml.safe_load(f)
+        data = yaml.load(f, Loader=UniqueKeyLoader)
     if data is None:
         return {}
     if not isinstance(data, dict):
@@ -95,6 +114,8 @@ def load_groups(
             groups=[],
             gem5_targets={},
             xs_targets={},
+            derived_gem5={},
+            derived_xs={},
             derived={},
             column_order=[],
             group_to_columns={},
@@ -106,6 +127,8 @@ def load_groups(
 
     gem5_targets: Dict[str, str] = {}
     xs_targets: Dict[str, str] = {}
+    derived_gem5: Dict[str, str] = {}
+    derived_xs: Dict[str, str] = {}
     derived: Dict[str, str] = {}
     loaded_groups: List[str] = []
     group_to_columns: Dict[str, List[str]] = {}
@@ -151,11 +174,37 @@ def load_groups(
             if not isinstance(derived_map, dict):
                 raise ValueError(f"invalid derived map for {group_name!r} in {f}")
 
+            derived_gem5_map = group_def.get("derived_gem5", {}) or {}
+            if not isinstance(derived_gem5_map, dict):
+                raise ValueError(
+                    f"invalid derived_gem5 map for {group_name!r} in {f}"
+                )
+
+            derived_xs_map = group_def.get("derived_xs", {}) or {}
+            if not isinstance(derived_xs_map, dict):
+                raise ValueError(
+                    f"invalid derived_xs map for {group_name!r} in {f}"
+                )
+
+            gem5_regex_map = group_def.get("gem5_regex", {}) or {}
+            if not isinstance(gem5_regex_map, dict):
+                raise ValueError(
+                    f"invalid gem5_regex map for {group_name!r} in {f}"
+                )
+
             # Track YAML key order for UI/CSV column ordering.
-            # Order: gem5 keys then xs keys then derived keys, dedup within group.
+            # Order: raw targets, backend-specific derived keys, then common
+            # derived keys, deduped within each group.
             group_cols: List[str] = group_to_columns.setdefault(group_name, [])
             group_seen = set(group_cols)
-            for m in (gem5_map, xs_map, derived_map):
+            for m in (
+                gem5_map,
+                gem5_regex_map,
+                xs_map,
+                derived_gem5_map,
+                derived_xs_map,
+                derived_map,
+            ):
                 for col in m.keys():
                     col = str(col).strip()
                     if not col or col in group_seen:
@@ -174,6 +223,17 @@ def load_groups(
                 full = _join_stat(base_gem5, str(suffix))
                 full = _format_macros(full, macros)
                 gem5_targets[col] = gem5_glob_to_stat_regex(full)
+
+            for col, pattern in gem5_regex_map.items():
+                col = str(col).strip()
+                if not col:
+                    continue
+                pattern = _format_macros(str(pattern), macros)
+                if col in gem5_targets and gem5_targets[col] != pattern:
+                    raise ValueError(
+                        f"duplicate gem5 column {col!r} across yaml files/groups"
+                    )
+                gem5_targets[col] = pattern
 
             for col, xs_val in xs_map.items():
                 col = str(col).strip()
@@ -196,6 +256,22 @@ def load_groups(
                     raise ValueError(f"duplicate derived column {col!r} across yaml files/groups")
                 derived[col] = expr
 
+            for target, target_map, section in (
+                (derived_gem5, derived_gem5_map, "derived_gem5"),
+                (derived_xs, derived_xs_map, "derived_xs"),
+            ):
+                for col, expr in target_map.items():
+                    col = str(col).strip()
+                    if not col:
+                        continue
+                    expr = _format_macros(str(expr), macros)
+                    if col in target and target[col] != expr:
+                        raise ValueError(
+                            f"duplicate {section} column {col!r} "
+                            "across yaml files/groups"
+                        )
+                    target[col] = expr
+
     missing_groups = sorted(set(selected) - set(loaded_groups))
     if missing_groups:
         raise ValueError(f"unknown groups: {', '.join(missing_groups)}")
@@ -207,6 +283,8 @@ def load_groups(
         groups=sorted(set(loaded_groups)),
         gem5_targets=gem5_targets,
         xs_targets=xs_targets,
+        derived_gem5=derived_gem5,
+        derived_xs=derived_xs,
         derived=derived,
         column_order=column_order,
         group_to_columns=group_to_columns,

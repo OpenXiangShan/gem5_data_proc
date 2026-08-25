@@ -44,8 +44,15 @@ def _load_group_columns(repo_root: Path) -> dict:
                 gname = str(gname)
                 out = group_to_cols.setdefault(gname, [])
                 seen = set(out)
-                # Preserve YAML key order: gem5 -> xs -> derived.
-                for sec in ("gem5", "xs", "derived"):
+                # Preserve YAML key order used by utils.targets_yaml.
+                for sec in (
+                    "gem5",
+                    "gem5_regex",
+                    "xs",
+                    "derived_gem5",
+                    "derived_xs",
+                    "derived",
+                ):
                     m = gdef.get(sec, {}) or {}
                     if not isinstance(m, dict):
                         continue

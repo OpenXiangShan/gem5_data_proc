@@ -9,7 +9,10 @@ groups:
     base_gem5: "{gem5_cpu_prefix}.branchPred"
     xs_fmt: "{perf} .*\\.ftq.*: {stat},\\s+(\\d+)"
     gem5:
-      branches: "system.cpu.commit.branches"
+      # Correct-path committed mispredictions. Do not use O3
+      # commit.branchMispredicts here: that counter is updated on squash and
+      # includes branches that may not later commit.
+      BPAllWrong: branchClassCountsTotal
       # committed stats
       BpBWrong: "branchClassMisses::cond_branch"
       BpIWrong: "branchClassMisses::indirect_jump"
@@ -23,8 +26,12 @@ groups:
       commitFsqEntryHasInsts: "commitFsqEntryHasInsts::mean"
       predictionBlockedForUpdate: "system.cpu.branchPred.predictionBlockedForUpdate"
       resolveQueueFull: "system.cpu.fetch.resolveQueueFullEvents"
-      overrideBubbleNum: "overrideBubbleNum"
+    gem5_regex:
+      # Match the scalar stat in single-thread runs and only ::total in SMT.
+      branches: 'system\.cpu\.commit\.branches(?:::total)?'
     xs:
+      branches: commit_branch_num
+      BPAllWrong: commit_branch_mispredicts
       BpBInsts: commit_branch_type_conditional
       BpBWrong: commit_branch_mispredicts_type_conditional
       BpBWrongReasonBTB: commit_conditional_branch_mispredicts_reason_BTB
@@ -35,8 +42,9 @@ groups:
       BpRetWrong: commit_branch_mispredicts_type_ret
       resolveQueueFull: resolveQueueFull
     derived:
-      cond_MPKI: "BpBWrong * 1000 / 20000000"
-      BPAllWrong: BpBWrong + BpIWrong + BpCallWrong + BpRetWrong
+      cond_MPKI: "BpBWrong * 1000 / committedInsts"
+      branch_MPKI: "BPAllWrong * 1000 / committedInsts"
+      branch_mispredict_rate: "BPAllWrong / branches"
 
   branch_reason:
     base_gem5: "{gem5_cpu_prefix}.branchPred"
@@ -51,13 +59,23 @@ groups:
       commit_branch_mispredicts_reason_RAS: "s3PredWrongRas"
     xs:
       commit_branch_mispredicts_s1_source_Fallthrough: commit_branch_mispredicts_s1_source_Fallthrough
-      commit_branch_mispredicts_s1_source_Abtb: commit_branch_mispredicts_s1_source_Abtb
-      commit_branch_mispredicts_s1_source_Ubtb: commit_branch_mispredicts_s1_source_Ubtb
+      commit_branch_mispredicts_s1_source_Ubtb_raw: commit_branch_mispredicts_s1_source_Ubtb
+      commit_branch_mispredicts_s1_source_UbtbUtage: commit_branch_mispredicts_s1_source_UbtbUtage
+      commit_branch_mispredicts_s1_source_Abtb_raw: commit_branch_mispredicts_s1_source_Abtb
+      commit_branch_mispredicts_s1_source_AbtbUtage: commit_branch_mispredicts_s1_source_AbtbUtage
       commit_branch_mispredicts_reason_RAS: commit_branch_mispredicts_reason_RAS
       commit_branch_mispredicts_reason_TAGE: commit_branch_mispredicts_reason_TAGE
       commit_branch_mispredicts_reason_ITTAGE: commit_branch_mispredicts_reason_ITTAGE
       commit_branch_mispredicts_reason_BTB: commit_branch_mispredicts_reason_BTB
       commit_branch_mispredicts_reason_SC: commit_branch_mispredicts_reason_SC
+    derived_xs:
+      # RTL splits uTAGE-assisted S1 sources while gem5 keeps the underlying
+      # BTB component as the source. Recombine RTL before comparing.
+      commit_branch_mispredicts_s1_source_Ubtb: "commit_branch_mispredicts_s1_source_Ubtb_raw + commit_branch_mispredicts_s1_source_UbtbUtage"
+      commit_branch_mispredicts_s1_source_Abtb: "commit_branch_mispredicts_s1_source_Abtb_raw + commit_branch_mispredicts_s1_source_AbtbUtage"
+    derived:
+      s1_source_final_wrong: "commit_branch_mispredicts_s1_source_Fallthrough + commit_branch_mispredicts_s1_source_Ubtb + commit_branch_mispredicts_s1_source_Abtb"
+      s1_source_final_wrong_MPKI: "s1_source_final_wrong * 1000 / committedInsts"
 
 
   frontend:
@@ -82,21 +100,50 @@ groups:
       stallCycles_decodeFull: stallCycles_decodeFull
       stallCycles_ibufferFull: stallCycles_ibufferFull
       squashCycles: squashCycles
-      s3Override: s3Override
       train_stall: train_stall
 
 
-  abtb:
-    base_gem5: "{gem5_cpu_prefix}.branchPred.abtb"
-    xs_fmt: "{perf} .*: {stat},\\s+(\\d+)"
+  override:
+    base_gem5: "{gem5_cpu_prefix}.branchPred"
+    xs_fmt: "{perf} .*\\.frontend.*\\.bpu: {stat},\\s+(\\d+)"
     gem5:
-      s1UseUBTB: S0PredUseUBTB
-      s1UseABTB: S0PredUseABTB
-      s1UseFallThrough: S0Predmiss
+      overrideCount: overrideCount
+      overrideBubbleNum: overrideBubbleNum
     xs:
-      s1UseUBTB: s1_use_ubtb
-      s1UseABTB: s1_use_abtb
-      s1UseFallThrough: s1_use_fallThrough
+      overrideCount: s3Override
+    derived:
+      override_MPKI: "overrideCount * 1000 / committedInsts"
+      override_bubbles_per_event: "overrideBubbleNum / overrideCount"
+
+  abtb:
+    base_gem5: "{gem5_cpu_prefix}.branchPred"
+    gem5:
+      gem5S1SelectUbtb: abtb.S0PredUseUBTB
+      gem5S1SelectAbtb: abtb.S0PredUseABTB
+      gem5S1SelectMiss: abtb.S0Predmiss
+      abtbLookupMiss: abtb.predMiss
+      abtbHitEntries: abtb.predHit
+    xs:
+      predictionCount: "{perf} .*\\.bpu\\.abtb: predict_num,\\s+(\\d+)"
+      abtbLookupHit: "{perf} .*\\.bpu\\.abtb: predict_hit,\\s+(\\d+)"
+      abtbLookupMiss: "{perf} .*\\.bpu\\.abtb: predict_miss,\\s+(\\d+)"
+      abtbHitEntries: "{perf} .*\\.bpu\\.abtb: predict_hit_entry_num,\\s+(\\d+)"
+      rtlS1TakenUbtb: "{perf} .*\\.frontend.*\\.bpu: s1_use_ubtb,\\s+(\\d+)"
+      rtlS1TakenAbtb: "{perf} .*\\.frontend.*\\.bpu: s1_use_abtb,\\s+(\\d+)"
+      rtlS1TakenAbtbUtage: "{perf} .*\\.frontend.*\\.bpu: s1_use_abtb_microTage,\\s+(\\d+)"
+      rtlS1FallThrough: "{perf} .*\\.frontend.*\\.bpu: s1_use_fallThrough,\\s+(\\d+)"
+    derived_gem5:
+      predictionCount: "gem5S1SelectUbtb + gem5S1SelectAbtb + gem5S1SelectMiss"
+      # ABTB is looked up for each S1 request, so its hit-event count is the
+      # total lookup count minus lookup misses. This remains valid across the
+      # old uBTB-first and new ABTB-exclusive arbitration policies.
+      abtbLookupHit: "predictionCount - abtbLookupMiss"
+    derived_xs:
+      rtlS1TakenAbtbAll: "rtlS1TakenAbtb + rtlS1TakenAbtbUtage"
+    derived:
+      abtbLookupHitRate: "abtbLookupHit / predictionCount"
+      abtbEntriesPerHit: "abtbHitEntries / abtbLookupHit"
+      overrideRate: "overrideCount / predictionCount"
 
   tage:
     base_gem5: "{gem5_cpu_prefix}.branchPred.tage"
@@ -132,13 +179,26 @@ groups:
     base_gem5: "{gem5_cpu_prefix}.branchPred.microtage"
     xs_fmt: "{perf} .*\\.utage.*: {stat},\\s+(\\d+)"
     gem5:
-      utage_update_use: updateUtageHit
-      utage_update_hit_wrong: updateUtageHitWrong
-      utage_update_use_abtb_wrong: updateUseAltWrong
+      # kmhv3 uses S3 teacher training. The resolved-update counters remain
+      # zero when usingS3Pred is enabled.
+      utage_update_use: s3UpdateUtageHit
+      utage_update_hit_wrong: s3UpdateUtageHitWrong
+      utage_update_use_abtb_wrong: s3UpdateUseAltWrong
+      condPredwrong: condPredwrong
+      condCorrect: condCorrect
     xs:
       utage_update_use: use_microtage
       utage_update_hit_wrong: train_hit_mispred
       utage_update_use_abtb_wrong: train_miss_hit_mispred
+    derived:
+      # RTL counts one mismatch event per trained block, while gem5 currently
+      # increments per mismatching conditional entry. This is therefore a
+      # close diagnostic rather than a bit-exact equality.
+      utage_teacher_wrong_rate: "utage_update_hit_wrong / utage_update_use"
+      utage_use_rate: "utage_update_use / predictionCount"
+      utage_base_wrong_rate: "utage_update_use_abtb_wrong / predictionCount"
+      microtage_MPKI: "condPredwrong * 1000 / committedInsts"
+      cond_wrong_rate: condPredwrong / (condCorrect + condPredwrong)
 
   mbtb:
     base_gem5: "{gem5_cpu_prefix}.branchPred.mbtb"
@@ -154,14 +214,3 @@ groups:
       predMiss: pred_miss
       train_has_mispredict: train_has_mispredict
       train_mispredict_conditional_because_mbtb_miss: train_mispredict_conditional_because_mbtb_miss
-
-  microtage:
-    base_gem5: "{gem5_cpu_prefix}.branchPred.microtage"
-    xs_fmt: "{perf} .*: {stat},\\s+(\\d+)"
-    gem5:
-      condPredwrong: condPredwrong
-      condCorrect: condCorrect
-    derived:
-      microtage_MPKI: "condPredwrong * 1000 / 20000000"
-      cond_wrong_rate: condPredwrong / (condCorrect + condPredwrong)
-

@@ -88,6 +88,41 @@ python3 run.py /path/to/results --out-dir results -g basic,intel_topdown
 
 Local (not committed) extensions can be put under `targets/local/*.yaml` (gitignored).
 
+Use `gem5_regex` when one output column must match an explicit regular
+expression instead of the usual stat-name/glob conversion. For example, the
+following extracts the scalar counter from a single-thread run and only the
+aggregate `::total` counter from an SMT run:
+
+``` yaml
+groups:
+  basic:
+    gem5_regex:
+      committedInsts: 'system\\.cpu\\.committedInsts(?:::total)?'
+```
+
+The regular expression must match the complete stat name. The parser appends
+the whitespace/value capture used to read `stats.txt`.
+
+Use `derived_gem5` or `derived_xs` when the two simulators need different raw
+counter combinations before a common derived metric can be evaluated. The
+backend-specific expressions run before `derived`:
+
+``` yaml
+groups:
+  branch_source:
+    gem5:
+      s1WrongAbtb: s1PredWrongAbtb
+    xs:
+      s1WrongAbtbRaw: commit_branch_mispredicts_s1_source_Abtb
+      s1WrongAbtbUtage: commit_branch_mispredicts_s1_source_AbtbUtage
+    derived_xs:
+      s1WrongAbtb: s1WrongAbtbRaw + s1WrongAbtbUtage
+    derived:
+      s1WrongAbtbMPKI: s1WrongAbtb * 1000 / committedInsts
+```
+
+Duplicate YAML keys are rejected instead of being silently overwritten.
+
 # Compare weighted CSV (web UI)
 
 Compare two weighted CSVs in a local web UI:
