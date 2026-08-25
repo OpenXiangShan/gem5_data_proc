@@ -4,12 +4,16 @@ from pathlib import Path
 
 from run import (
     BUILTIN_CLUSTER_JSONS,
+    DEFAULT_BENCHMARK_TYPE,
     _find_benchmark_type,
     _profile_for_benchmark_type,
 )
 
 
 class RunBenchmarkTypeTest(unittest.TestCase):
+    def test_default_profile_is_gcc16(self):
+        self.assertEqual(DEFAULT_BENCHMARK_TYPE, "gcc16")
+
     def test_gcc15_and_gcc16_presets_use_full_profiles(self):
         self.assertTrue(
             BUILTIN_CLUSTER_JSONS["gcc15"].endswith(

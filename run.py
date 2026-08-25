@@ -29,7 +29,7 @@ BUILTIN_CLUSTER_JSONS: Dict[str, str] = {
         "checkpoint-0-0-0/cluster-0-0.json"
     ),
 }
-DEFAULT_BENCHMARK_TYPE = "gcc15"
+DEFAULT_BENCHMARK_TYPE = "gcc16"
 
 
 def _find_first_file(root: str, filename: str) -> Optional[str]:

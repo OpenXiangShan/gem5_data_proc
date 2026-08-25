@@ -51,7 +51,7 @@ Notes:
   using the matching points present in that result.
 - `--benchmark-type {gcc12,gcc15,gcc16,xscc}` overrides metadata detection.
   The old `--slice` spelling remains available as an alias.
-- Without metadata or an explicit selection, the default profile is GCC15.
+- Without metadata or an explicit selection, the default profile is GCC16.
 - `-j /path/to/cluster.json` overrides `--benchmark-type`.
 - For XS / RTL directories, `run.py` automatically reuses the selected json as
   `batch.py --json-filter`, so mixed-profile directories are filtered to the
