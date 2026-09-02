@@ -28,30 +28,22 @@ def single_stat_factory(targets, key, prefix=''):
 
 #input may be: work_load_point/ ; workload_point/ ; work_load/point/ ; workload/point/ 
 def workload_point_frompath(path):
-    # print(path)
-    split_path = path.split('/')[0].split('_')
-    # print(split_path)
+    first_layer = path.split('/')[0]
+    split_path = first_layer.split('_')
     second_layer = path.split('/')[1]
     level = 1
     if '.' in split_path[-1]: # .*_xxxx_weight
         split_path = split_path[:-1]
 
     if second_layer.isdigit() and len(second_layer) > 1:# workload/point/ ; work_load/point/ 
-        workload = path.split('/')[0]
+        workload = first_layer
         point = second_layer
         level = 2
-    elif len(split_path) >= 4 and not split_path[2].isdigit() and split_path[3].isdigit():#work_lo_ad_point_xxx/
-        workload = split_path[0] + '_' + split_path[1] + '_' + split_path[2]
-        point = split_path[3]
-    elif len(split_path) >= 3 and split_path[2].isdigit():#work_load_point_xxx/
-        workload = split_path[0] + '_' + split_path[1]
-        point = split_path[2]
-    elif len(split_path) == 2 and split_path[1].isdigit():# workload_point_xxx/
-        # print(split_path)
-        workload = split_path[0]
-        point = split_path[1]
+    elif len(split_path) >= 2 and split_path[-1].isdigit():
+        workload = '_'.join(split_path[:-1])
+        point = split_path[-1]
     else:
-        workload = path.split('/')[0]
+        workload = first_layer
         point = '0'
         level = 1
         
