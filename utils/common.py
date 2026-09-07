@@ -280,7 +280,8 @@ def xs_get_mshr_latency(line: str, lv: str):
 
 
 def xs_get_stats(stat_file: str, targets: list,
-              insts: int=200*(10**6), re_targets=False) -> dict:
+              insts: int=200*(10**6), re_targets=False,
+              required_keys=None, diagnostics=None) -> dict:
     
     target_keys = list(targets.keys())
     num_cores = len(list(filter(lambda x: x.startswith('commitInstr'), target_keys)))
@@ -321,7 +322,7 @@ def xs_get_stats(stat_file: str, targets: list,
                 if k in accumulate_table:
                     accumulate_table[k][1].append(to_num(m.group(1)))
                 else:
-                    if k == 'commitInstr':
+                    if k in ('commitInstr', 'committedInsts'):
                         commitInstr_count += 1
                     stats[k] = to_num(m.group(1))
                 break
@@ -350,16 +351,27 @@ def xs_get_stats(stat_file: str, targets: list,
     # print("Not found:", not_found_keys)
 
     # Check if both warmup and main simulation completed (should have 2 commitInstr entries)
-    if 'commitInstr' in patterns and commitInstr_count < 2:
-        print(f"warning: in {stat_file} commitInstr appears {commitInstr_count} time(s), expected 2 (warmup + main)")
+    def report(message):
+        if diagnostics is None:
+            print(f"warning: in {stat_file}: {message}")
+        else:
+            diagnostics[stat_file] = message
+
+    if {'commitInstr', 'committedInsts'} & patterns.keys() and commitInstr_count < 2:
+        report(f"commitInstr appears {commitInstr_count} time(s), expected 2 (warmup + main); skipped")
         return None
 
-    if len(not_found_keys) > 0:
-        print(f"warning: in {stat_file} not found the following stats:")
-        print(f"missing stats: {not_found_keys}")
-        print(f"obtained stats: {obtained_keys}")
-        # return None means this stat file is invalid
-        return None 
+    required = desired_keys if required_keys is None else set(required_keys)
+    missing_required = required - obtained_keys
+    if missing_required:
+        report(f"missing required stats: {', '.join(sorted(missing_required))}; skipped")
+        return None
+    if required_keys is not None and any(stats[k] <= 0 for k in required):
+        report("non-positive required stats; skipped")
+        return None
+    if not_found_keys:
+        report(f"missing optional stats: {', '.join(sorted(not_found_keys))}; kept as NaN")
+        stats.update({key: float('nan') for key in not_found_keys})
 
     # print(mshr_latency.keys())
     tdf = None

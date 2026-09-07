@@ -224,10 +224,12 @@ def main():
     try:
         manager = Manager()
         all_bmk_dict = manager.dict()
+        diagnostics = manager.dict()
     except Exception as e:
         print(f"warning: multiprocessing Manager unavailable, falling back to sequential mode: {e}")
         use_mp = False
         all_bmk_dict = {}
+        diagnostics = {}
 
     require_flag = False
     if xs_stat_fmt:
@@ -248,8 +250,12 @@ def main():
     def extract_and_post_process(gloabl_dict, workload, path):
         if opt.filter_bmk and not workload.startswith(opt.filter_bmk):
             return
-        if opt.json_filter is not None and workload not in possible_paths:
-            return
+        if opt.json_filter is not None:
+            # Preserve the weight suffix when selecting mixed RTL profiles.
+            directory = osp.relpath(path, opt.stat_dir).split(osp.sep)[0]
+            identifier = directory if directory.startswith(workload + '_') else workload
+            if identifier not in possible_paths:
+                return
         if xs_stat_fmt:
             flag_file = osp.join(osp.dirname(path), 'completed')
         else:
@@ -263,7 +269,9 @@ def main():
         # print(workload)
         if opt.ipc_only:
             if xs_stat_fmt:
-                d = c.xs_get_stats(path, yaml_xs_targets, re_targets=True)
+                d = c.xs_get_stats(path, yaml_xs_targets, re_targets=True,
+                                   required_keys={'committedInsts', 'cycles'},
+                                   diagnostics=diagnostics)
             else:
                 d = c.gem5_get_stats(path, yaml_gem5_targets, re_targets=True)
         else:
@@ -292,7 +300,9 @@ def main():
 
                 add_eval_targets(opt, targets)
 
-                d = c.xs_get_stats(path, targets, re_targets=True)
+                d = c.xs_get_stats(path, targets, re_targets=True,
+                                   required_keys={'committedInsts', 'cycles'},
+                                   diagnostics=diagnostics)
             else:
                 targets = dict(yaml_gem5_targets)
                 if opt.branch:
@@ -360,12 +370,23 @@ def main():
         jobs = [Process(target=extract_and_post_process, args=(all_bmk_dict, workload, path)) for workload, path in paths]
         _ = [p.start() for p in jobs]
         _ = [p.join() for p in jobs]
+        if any(p.exitcode != 0 for p in jobs):
+            raise SystemExit("Error: stats extraction worker failed; stopping before weighting")
     else:
         for workload, path in paths:
             extract_and_post_process(all_bmk_dict, workload, path)
 
+    warnings_by_message = {}
+    for path, message in sorted(diagnostics.items()):
+        warnings_by_message.setdefault(message, []).append(path)
+    for message, examples in sorted(warnings_by_message.items()):
+        print(f"warning: {len(examples)} file(s): {message}")
+        print(f"  example: {examples[0]}")
+
     # Filter out None values
     all_bmk_dict = {k: v for k, v in all_bmk_dict.items() if v is not None}
+    if not all_bmk_dict:
+        raise SystemExit("Error: no valid stats remain; check profile filtering and required stats")
 
     df = pd.DataFrame.from_dict(all_bmk_dict, orient='index')
 

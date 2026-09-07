@@ -156,8 +156,11 @@ def _run_pipeline(
 
 
 def _run(argv: List[str], cwd: Optional[Path] = None) -> None:
-    print("+", " ".join(argv))
-    subprocess.run(argv, check=True, cwd=str(cwd) if cwd is not None else None)
+    print("+", " ".join(argv), flush=True)
+    try:
+        subprocess.run(argv, check=True, cwd=str(cwd) if cwd is not None else None)
+    except subprocess.CalledProcessError as error:
+        raise SystemExit(error.returncode) from None
 
 
 def main() -> None:

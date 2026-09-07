@@ -124,7 +124,15 @@ def proc_bmk(bmk_df: pd.DataFrame, js: dict, bmk: str):
 
 def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
     spec_v = args.spec_version
-    df = pd.read_csv(csv_path, index_col=0)
+    try:
+        df = pd.read_csv(csv_path, index_col=0)
+    except pd.errors.EmptyDataError:
+        raise SystemExit(f"Error: empty input CSV: {csv_path}") from None
+    if df.empty:
+        raise SystemExit(f"Error: no valid rows in input CSV: {csv_path}")
+    missing = {'bmk', 'workload', 'point'} - set(df.columns)
+    if missing:
+        raise SystemExit(f"Error: input CSV missing required columns: {', '.join(sorted(missing))}")
 
     # Preserve input CSV column order (batch.py already emits YAML-ordered columns).
     with open(js_path, 'r') as f:
@@ -136,8 +144,7 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
         # print(f"Skip workloads missing in weight json: {dropped}")
         df = df[df['workload'].isin(valid_workloads)]
     if df.empty:
-        print("All workloads were filtered out; nothing to process.")
-        return
+        raise SystemExit("Error: all workloads were filtered out; check the weight JSON")
     bmks = df['bmk'].unique()
     weighted = {}
     dirty_bmk_pattern = re.compile(r'(?P<name>\w+)-(?P<dirty>\d)')

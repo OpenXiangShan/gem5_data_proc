@@ -101,6 +101,32 @@ class BackendSpecificMetricsTest(unittest.TestCase):
         )
 
 
+class RtlIntelTopdownTest(unittest.TestCase):
+    def test_redirect_total_does_not_match_rob_generated_flushes(self):
+        loaded = load_groups([str(REPO_ROOT / 'targets')], ['intel_topdown'])
+        pattern = re.compile(loaded.xs_targets['total_squash'])
+        prefix = '[PERF ][time=42] SimTop.backend.ctrlBlock.rob: '
+        self.assertIsNotNone(pattern.match(prefix + 'total_flush, 290541'))
+        self.assertIsNone(pattern.match(prefix + 'flush_num, 0'))
+
+    def test_measured_retiring_and_missing_speculation(self):
+        loaded = load_groups([str(REPO_ROOT / 'targets')], ['intel_topdown'])
+        frame = pd.DataFrame({
+            'committedInsts': [10_000_000.0, 20_000_017.0],
+            'cycles': [10_000_000.0, 10_000_000.0],
+            'br_mis_pred': [10.0, 20.0],
+            'total_squash': [11.0, 21.0],
+        })
+        rtl = apply_derived_metrics(frame.copy(), {**loaded.derived_xs, **loaded.derived})
+        self.assertAlmostEqual(rtl.loc[0, 'baseRetiring'], 0.125)
+        self.assertAlmostEqual(rtl.loc[1, 'baseRetiring'], 20_000_017 / 80_000_000)
+        for metric in ('badSpecBound', 'branchMissPrediction', 'machineClears', 'backendBound'):
+            self.assertTrue(rtl[metric].isna().all())
+
+        gem5 = apply_derived_metrics(frame.copy(), {**loaded.derived_gem5, **loaded.derived})
+        self.assertTrue((gem5['baseRetiring'] == 0.25).all())
+
+
 class UniqueYamlKeyTest(unittest.TestCase):
     def test_duplicate_group_key_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -55,7 +55,20 @@ Notes:
 - `-j /path/to/cluster.json` overrides `--benchmark-type`.
 - For XS / RTL directories, `run.py` automatically reuses the selected json as
   `batch.py --json-filter`, so mixed-profile directories are filtered to the
-  intended SimPoint slice before weighting and scoring.
+  intended SimPoint slice before weighting and scoring. Flattened directories
+  with a weight suffix must match the full `workload_point_weight` entry.
+
+RTL extraction requires positive `committedInsts` and `cycles`, plus warmup and
+measurement `commitInstr` dumps. Missing analysis counters are kept as `NaN`
+(including dependent metrics), with one warning summary per missing-counter set
+and one example path. Empty extraction stops before weighting. Use `-g basic`
+when only IPC and score are needed.
+
+RTL Intel Topdown uses ROB `total_flush` for total redirects and measured
+`committedInsts` for retiring (DefaultConfig width=8). Recent RTL does not export
+the legacy `inst_spec` / `recovery_bubble` counters, so bad-speculation metrics
+and `backendBound` remain `NaN`. Rename `recovery_stall` only counts RAB walks
+and is not a substitute; full Topdown accounting needs consistent RTL slot units.
 
 The legacy wrapper is still available (it calls `run.py` internally):
 ``` shell
