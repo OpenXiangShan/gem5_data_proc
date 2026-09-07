@@ -321,3 +321,67 @@ A typical directory structure of XS looks like:
 |   `-- simulator_out.txt
 ...
 ```
+
+
+## RTL / GEM5 dispatch accounting
+
+Use the measured instruction window and distinguish accepted dispatch uops from
+stall labels and issue attempts:
+
+```bash
+python3 run.py /path/to/results --out-dir results \
+  -g basic,dispatch_accounting,dispatch_histogram,rtl_dispatch,rename_resources,intel_topdown,old_topdown
+```
+
+- `dispatch_uops`: GEM5 `iew.dispatchedInsts`; RTL Dispatch `in_fire_count`.
+  Both count acceptance at the rename/dispatch boundary, including speculative
+  work and eliminated instructions; they are not execution/replay counts.
+- `retired_uops`: GEM5 `commit.opsCommitted`; RTL ROB `commitUop`.
+  `committedInsts` remains the architectural instruction denominator. Instruction
+  fusion and micro-op expansion can make the two retirement counts different.
+- `dispatch_retire_delta_per_inst` is a finite-window proxy for non-retired work,
+  not an exact wrong-path count: pipeline occupancy at the window boundaries and
+  differences in uop modeling must still be considered.
+- `dispatch_nostall_minus_fire` / `dispatch_nostall_fire_ratio` expose differences
+  between NoStall labels and real dispatch. Do not substitute NoStall for fire.
+- `dispatch_histogram_minus_fire` independently compares the histogram's weighted
+  bin sum with acceptance counts. GEM5 sums bins 0..32; current RTL DefaultConfig
+  sums 0..8. `dispatch_histogram_minus_cycles` checks sampled-cycle coverage.
+  In the astar CI audit, GEM5 count residuals were exactly zero; RTL histogram
+  counters differed by at most one width-8 cycle due to their sampling boundary.
+  Missing bins remain NaN; do not interpret an unavailable check as passing.
+- `rtl_dispatch` preserves the current RTL category names with a `rtl_dispatch_`
+  prefix, including IntFlStall, RobStall, load cancellation and unclassified slots.
+  `rtl_dispatch_partition_residual` checks the width-8 category sum against cycles;
+  this formula is specific to DefaultConfig, not arbitrary widths or multi-core
+  combined logs. BackendOtherCoreStall is unclassified, not a confirmed FU stall.
+- `rename_resources` keeps backend-specific counters separate. In particular,
+  zero GEM5 `fullRegistersEvents` does not prove absence of register starvation:
+  the model can attribute it to a ROB/LSQ-head reason first. RTL rename stall
+  cycles overlap dispatch labels and must not be added to them.
+
+Intel Topdown now uses GEM5 **Commit** `branchMispredicts` with Commit
+`totalSquash`; the old execution-stage count is retained as `iew_br_mis_pred`.
+This avoids negative machineClears caused by mixing event stages. Both formats
+use measured `committedInsts` instead of a fixed 20M instruction denominator.
+The legacy GEM5 dispatch export also includes ControlRecovery, MemVioRecovery,
+VPRecovery and TrapRecovery, which must not be silently omitted from its total.
+
+These changes do not align every Intel Topdown event: GEM5 and RTL still use
+few-ops thresholds 8 and 4, respectively, and different store-stall conditions.
+RTL unavailable speculative/recovery counters stay NaN; `dispatch_uops` is not
+silently substituted into legacy `inst_spec`. Raw core/memory fractions in this
+processor are also distinct from gem5's scaled native backend fractions.
+
+For benchmark comparisons, keep raw counters and CPI. A weighted average of
+per-point percentages is not the same as a ratio of weighted counts. Rank
+alignment slices by `profile_instructions * simpoint_weight * (RTL_CPI - GEM5_CPI)`
+as well as runtime share; raw weights from different benchmark inputs are not
+directly comparable.
+
+Use `dispatch_histogram` together with `dispatch_accounting` for acceptance and
+cycle checks; missing dependencies intentionally produce NaN. Intel Topdown
+validation here is for single-thread width-8 runs. Accepting a scalar or
+`::total` branch counter does not make the whole Intel group SMT-compatible:
+per-thread-only totalSquash and other slot counters still need explicit
+aggregation before drawing SMT conclusions.

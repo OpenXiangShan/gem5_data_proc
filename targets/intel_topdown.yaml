@@ -12,7 +12,6 @@ groups:
       inst_spec: "iew.dispatchedInsts"
       fetch_bubble: "fetch.fetchBubbles"
       fetch_bubble_eq_max: "fetch.fetchBubbles_max"
-      br_mis_pred: "iew.branchMispredicts"
       total_squash: "commit.totalSquash"
       recovery_bubble: "commit.recovery_bubble"
       exec_stall_cycle: "scheduler.exec_stall_cycle"
@@ -21,6 +20,9 @@ groups:
       mem_stall_l1miss: "scheduler.memstall_l1miss"
       mem_stall_l2miss: "scheduler.memstall_l2miss"
       mem_stall_l3miss: "scheduler.memstall_l3miss"
+    gem5_regex:
+      br_mis_pred: 'system\.cpu\.commit\.branchMispredicts(?:::total)?'
+      iew_br_mis_pred: 'system\.cpu\.iew\.branchMispredicts(?:::total)?'
     xs:
       # Recent RTL no longer exports these two legacy Decode counters.
       # Keep missing values as NaN; rename recovery_stall is not equivalent.
@@ -37,11 +39,11 @@ groups:
       mem_stall_l2miss: mem_stall_l2miss
       mem_stall_l3miss: mem_stall_l3miss
     derived_gem5:
-      # Preserve the existing GEM5 formulas.
-      baseRetiring: "20000000 / (8 * cycles)"
-      badSpecBound: "(inst_spec - 20000000 + recovery_bubble) / (8 * cycles)"
-      branchMissPrediction: "((inst_spec - 20000000 + recovery_bubble) / (8 * cycles)) * br_mis_pred / total_squash"
-      machineClears: "((inst_spec - 20000000 + recovery_bubble) / (8 * cycles)) * (1 - br_mis_pred / total_squash)"
+      # Match redirect acceptance to totalSquash and use the measured ROI.
+      baseRetiring: "committedInsts / (8 * cycles)"
+      badSpecBound: "(inst_spec - committedInsts + recovery_bubble) / (8 * cycles)"
+      branchMissPrediction: "((inst_spec - committedInsts + recovery_bubble) / (8 * cycles)) * br_mis_pred / total_squash"
+      machineClears: "((inst_spec - committedInsts + recovery_bubble) / (8 * cycles)) * (1 - br_mis_pred / total_squash)"
     derived_xs:
       # DefaultConfig width=8. Full bad-speculation accounting still requires
       # compatible speculative/retired slot counters and recovery units in RTL.
@@ -108,3 +110,7 @@ groups:
       ROBFull: "dispatchStallReason::ROBFull"
       RegFull: "dispatchStallReason::RegFull"
       OtherStall: "dispatchStallReason::OtherStall"
+      ControlRecovery: "dispatchStallReason::ControlRecovery"
+      MemVioRecovery: "dispatchStallReason::MemVioRecovery"
+      VPRecovery: "dispatchStallReason::VPRecovery"
+      TrapRecovery: "dispatchStallReason::TrapRecovery"

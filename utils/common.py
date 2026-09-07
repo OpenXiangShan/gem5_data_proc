@@ -316,6 +316,7 @@ def xs_get_stats(stat_file: str, targets: list,
     caches = ['l3']  # caches that need to be manually processed
     for ln, line in enumerate(lines):
         matched_re_pattern = False
+        matched_commit_line = False
         for k in patterns:
             m = patterns[k].match(line)
             if not m is None:
@@ -324,9 +325,10 @@ def xs_get_stats(stat_file: str, targets: list,
                     accumulate_table[k][1].append(to_num(m.group(1)))
                 else:
                     if k in ('commitInstr', 'committedInsts'):
-                        commitInstr_count += 1
+                        matched_commit_line = True
                     stats[k] = to_num(m.group(1))
-                break
+        # Aliases may share a line; they must not count as separate dumps.
+        commitInstr_count += int(matched_commit_line)
         if not matched_re_pattern:
             for lv in caches:
                 mshr_latency = eval(f'mshr_latency_{lv}')

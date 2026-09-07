@@ -1,0 +1,185 @@
+domain: dispatch
+
+defaults:
+  gem5_cpu_prefix: system.cpu
+  perf: '\[PERF \]\[time=\s*\d+\]'
+
+groups:
+  dispatch_accounting:
+    # Dispatch counts are accepted rename/dispatch uops, not issue attempts.
+    # NoStall labels are deliberately separate: GEM5 may label empty slots so.
+    base_gem5: '{gem5_cpu_prefix}'
+    gem5_regex:
+      dispatch_uops: 'system\.cpu\.iew\.dispatchedInsts(?:::total)?'
+      retired_uops: 'system\.cpu\.commit\.opsCommitted(?:::total)?'
+    gem5:
+      dispatch_nostall_slots: 'iew.dispatchStallReason::NoStall'
+      dispatch_histogram_samples: 'iew.dispDist::samples'
+    xs:
+      dispatch_uops: '{perf} .*\.dispatch: in_fire_count,\s+(\d+)'
+      retired_uops: '{perf} .*\.rob: commitUop,\s+(\d+)'
+      dispatch_nostall_slots: '{perf} .*\.dispatch: NoStall,\s+(\d+)'
+      dispatch_histogram_samples: '{perf} .*\.dispatch: slots_fire_sampled,\s+(\d+)'
+      rtl_dispatch_histogram_sum: '{perf} .*\.dispatch: slots_fire_sum,\s+(\d+)'
+    derived:
+      dispatch_uops_per_inst: 'dispatch_uops / committedInsts'
+      retired_uops_per_inst: 'retired_uops / committedInsts'
+      dispatch_uops_per_cycle: 'dispatch_uops / cycles'
+      # A finite-window proxy, NOT an exact count of squashed/wrong-path uops.
+      dispatch_retire_delta: 'dispatch_uops - retired_uops'
+      dispatch_retire_delta_per_inst: '(dispatch_uops - retired_uops) / committedInsts'
+      dispatch_nostall_minus_fire: 'dispatch_nostall_slots - dispatch_uops'
+      dispatch_nostall_fire_ratio: 'dispatch_nostall_slots / dispatch_uops'
+      dispatch_histogram_minus_cycles: 'dispatch_histogram_samples - cycles'
+
+  dispatch_histogram:
+    # GEM5 distribution has bins 0..32; current RTL DefaultConfig has 0..8.
+    # Keeping backend-specific sums avoids assuming missing bins are zero.
+    base_gem5: '{gem5_cpu_prefix}.iew'
+    gem5:
+      dispatch_hist_0: 'dispDist::0'
+      dispatch_hist_1: 'dispDist::1'
+      dispatch_hist_2: 'dispDist::2'
+      dispatch_hist_3: 'dispDist::3'
+      dispatch_hist_4: 'dispDist::4'
+      dispatch_hist_5: 'dispDist::5'
+      dispatch_hist_6: 'dispDist::6'
+      dispatch_hist_7: 'dispDist::7'
+      dispatch_hist_8: 'dispDist::8'
+      dispatch_hist_9: 'dispDist::9'
+      dispatch_hist_10: 'dispDist::10'
+      dispatch_hist_11: 'dispDist::11'
+      dispatch_hist_12: 'dispDist::12'
+      dispatch_hist_13: 'dispDist::13'
+      dispatch_hist_14: 'dispDist::14'
+      dispatch_hist_15: 'dispDist::15'
+      dispatch_hist_16: 'dispDist::16'
+      dispatch_hist_17: 'dispDist::17'
+      dispatch_hist_18: 'dispDist::18'
+      dispatch_hist_19: 'dispDist::19'
+      dispatch_hist_20: 'dispDist::20'
+      dispatch_hist_21: 'dispDist::21'
+      dispatch_hist_22: 'dispDist::22'
+      dispatch_hist_23: 'dispDist::23'
+      dispatch_hist_24: 'dispDist::24'
+      dispatch_hist_25: 'dispDist::25'
+      dispatch_hist_26: 'dispDist::26'
+      dispatch_hist_27: 'dispDist::27'
+      dispatch_hist_28: 'dispDist::28'
+      dispatch_hist_29: 'dispDist::29'
+      dispatch_hist_30: 'dispDist::30'
+      dispatch_hist_31: 'dispDist::31'
+      dispatch_hist_32: 'dispDist::32'
+    xs:
+      dispatch_hist_0: '{perf} .*\.dispatch: slots_fire_0_1,\s+(\d+)'
+      dispatch_hist_1: '{perf} .*\.dispatch: slots_fire_1_2,\s+(\d+)'
+      dispatch_hist_2: '{perf} .*\.dispatch: slots_fire_2_3,\s+(\d+)'
+      dispatch_hist_3: '{perf} .*\.dispatch: slots_fire_3_4,\s+(\d+)'
+      dispatch_hist_4: '{perf} .*\.dispatch: slots_fire_4_5,\s+(\d+)'
+      dispatch_hist_5: '{perf} .*\.dispatch: slots_fire_5_6,\s+(\d+)'
+      dispatch_hist_6: '{perf} .*\.dispatch: slots_fire_6_7,\s+(\d+)'
+      dispatch_hist_7: '{perf} .*\.dispatch: slots_fire_7_8,\s+(\d+)'
+      dispatch_hist_8: '{perf} .*\.dispatch: slots_fire_8_9,\s+(\d+)'
+    derived_gem5:
+      dispatch_histogram_uops: '0 * dispatch_hist_0 + 1 * dispatch_hist_1 + 2 * dispatch_hist_2 + 3 * dispatch_hist_3 + 4 * dispatch_hist_4 + 5 * dispatch_hist_5 + 6 * dispatch_hist_6 + 7 * dispatch_hist_7 + 8 * dispatch_hist_8 + 9 * dispatch_hist_9 + 10 * dispatch_hist_10 + 11 * dispatch_hist_11 + 12 * dispatch_hist_12 + 13 * dispatch_hist_13 + 14 * dispatch_hist_14 + 15 * dispatch_hist_15 + 16 * dispatch_hist_16 + 17 * dispatch_hist_17 + 18 * dispatch_hist_18 + 19 * dispatch_hist_19 + 20 * dispatch_hist_20 + 21 * dispatch_hist_21 + 22 * dispatch_hist_22 + 23 * dispatch_hist_23 + 24 * dispatch_hist_24 + 25 * dispatch_hist_25 + 26 * dispatch_hist_26 + 27 * dispatch_hist_27 + 28 * dispatch_hist_28 + 29 * dispatch_hist_29 + 30 * dispatch_hist_30 + 31 * dispatch_hist_31 + 32 * dispatch_hist_32'
+    derived_xs:
+      dispatch_histogram_uops: '0 * dispatch_hist_0 + 1 * dispatch_hist_1 + 2 * dispatch_hist_2 + 3 * dispatch_hist_3 + 4 * dispatch_hist_4 + 5 * dispatch_hist_5 + 6 * dispatch_hist_6 + 7 * dispatch_hist_7 + 8 * dispatch_hist_8'
+    derived:
+      dispatch_histogram_minus_fire: 'dispatch_histogram_uops - dispatch_uops'
+      dispatch_zero_cycle_fraction: 'dispatch_hist_0 / dispatch_histogram_samples'
+
+  rtl_dispatch:
+    # Preserve RTL category names. These are slot labels, not independent
+    # causes; do not merge similarly named GEM5 categories automatically.
+    xs_fmt: '{perf} .*\.dispatch: {stat},\s+(\d+)'
+    xs:
+      rtl_dispatch_NoStall: NoStall
+      rtl_dispatch_OverrideBubble: OverrideBubble
+      rtl_dispatch_FtqUpdateBubble: FtqUpdateBubble
+      rtl_dispatch_TAGEMissBubble: TAGEMissBubble
+      rtl_dispatch_SCMissBubble: SCMissBubble
+      rtl_dispatch_ITTAGEMissBubble: ITTAGEMissBubble
+      rtl_dispatch_RASMissBubble: RASMissBubble
+      rtl_dispatch_MemVioRedirectBubble: MemVioRedirectBubble
+      rtl_dispatch_OtherRedirectBubble: OtherRedirectBubble
+      rtl_dispatch_FtqFullStall: FtqFullStall
+      rtl_dispatch_ICacheMissBubble: ICacheMissBubble
+      rtl_dispatch_ITLBMissBubble: ITLBMissBubble
+      rtl_dispatch_BTBMissBubble: BTBMissBubble
+      rtl_dispatch_FetchFragBubble: FetchFragBubble
+      rtl_dispatch_FrontendOtherCoreStall: FrontendOtherCoreStall
+      rtl_dispatch_IssueCancelStallOg0: IssueCancelStallOg0
+      rtl_dispatch_IssueCancelStallOg1: IssueCancelStallOg1
+      rtl_dispatch_IssueCancelStallLd: IssueCancelStallLd
+      rtl_dispatch_IssueCancelStallSt: IssueCancelStallSt
+      rtl_dispatch_IssueCancelStallOther: IssueCancelStallOther
+      rtl_dispatch_IssueDelayStall: IssueDelayStall
+      rtl_dispatch_DivStall: DivStall
+      rtl_dispatch_IntNotReadyStall: IntNotReadyStall
+      rtl_dispatch_FPNotReadyStall: FPNotReadyStall
+      rtl_dispatch_MemNotReadyStall: MemNotReadyStall
+      rtl_dispatch_OtherNotReadyStall: OtherNotReadyStall
+      rtl_dispatch_RobStall: RobStall
+      rtl_dispatch_LqStall: LqStall
+      rtl_dispatch_SqStall: SqStall
+      rtl_dispatch_IntFlStall: IntFlStall
+      rtl_dispatch_FpFlStall: FpFlStall
+      rtl_dispatch_VecFlStall: VecFlStall
+      rtl_dispatch_V0FlStall: V0FlStall
+      rtl_dispatch_VlFlStall: VlFlStall
+      rtl_dispatch_MultiFlStall: MultiFlStall
+      rtl_dispatch_FusionBubble: FusionBubble
+      rtl_dispatch_LoadDispatchPolicyStall: LoadDispatchPolicyStall
+      rtl_dispatch_StoreDispatchPolicyStall: StoreDispatchPolicyStall
+      rtl_dispatch_OtherDispatchPolicyStall: OtherDispatchPolicyStall
+      rtl_dispatch_BalanceDispatchPolicyStallAlu: BalanceDispatchPolicyStallAlu
+      rtl_dispatch_BalanceDispatchPolicyStallBrh: BalanceDispatchPolicyStallBrh
+      rtl_dispatch_BalanceDispatchPolicyStallInt: BalanceDispatchPolicyStallInt
+      rtl_dispatch_BalanceDispatchPolicyStallFp: BalanceDispatchPolicyStallFp
+      rtl_dispatch_BalanceDispatchPolicyStallVec: BalanceDispatchPolicyStallVec
+      rtl_dispatch_BalanceDispatchPolicyStallLoad: BalanceDispatchPolicyStallLoad
+      rtl_dispatch_BalanceDispatchPolicyStallStore: BalanceDispatchPolicyStallStore
+      rtl_dispatch_OtherBalanceDispatchPolicyStall: OtherBalanceDispatchPolicyStall
+      rtl_dispatch_IQEnqPolicyStallIssued: IQEnqPolicyStallIssued
+      rtl_dispatch_IQEnqPolicyStall: IQEnqPolicyStall
+      rtl_dispatch_IntIQFullStallAlu: IntIQFullStallAlu
+      rtl_dispatch_IntIQFullStallBrh: IntIQFullStallBrh
+      rtl_dispatch_IntIQFullStallOther: IntIQFullStallOther
+      rtl_dispatch_FpIQFullStall: FpIQFullStall
+      rtl_dispatch_VecIQFullStall: VecIQFullStall
+      rtl_dispatch_LoadIQFullStall: LoadIQFullStall
+      rtl_dispatch_StoreIQFullStall: StoreIQFullStall
+      rtl_dispatch_OtherIQFullStall: OtherIQFullStall
+      rtl_dispatch_RobHeadNotIssued: RobHeadNotIssued
+      rtl_dispatch_LoadTLBStall: LoadTLBStall
+      rtl_dispatch_LoadL1Stall: LoadL1Stall
+      rtl_dispatch_LoadL2Stall: LoadL2Stall
+      rtl_dispatch_LoadL3Stall: LoadL3Stall
+      rtl_dispatch_LoadMemStall: LoadMemStall
+      rtl_dispatch_StoreStall: StoreStall
+      rtl_dispatch_AtomicStall: AtomicStall
+      rtl_dispatch_LoadVioReplayStall: LoadVioReplayStall
+      rtl_dispatch_LoadMSHRReplayStall: LoadMSHRReplayStall
+      rtl_dispatch_ControlRedirectStall: ControlRedirectStall
+      rtl_dispatch_MemVioRedirectStall: MemVioRedirectStall
+      rtl_dispatch_OtherRedirectStall: OtherRedirectStall
+      rtl_dispatch_ControlRecoveryStall: ControlRecoveryStall
+      rtl_dispatch_MemVioRecoveryStall: MemVioRecoveryStall
+      rtl_dispatch_OtherRecoveryStall: OtherRecoveryStall
+      rtl_dispatch_FlushedInsts: FlushedInsts
+      rtl_dispatch_SpecialInsts: SpecialInsts
+      rtl_dispatch_BackendOtherCoreStall: BackendOtherCoreStall
+    derived:
+      rtl_dispatch_slots: 'rtl_dispatch_NoStall + rtl_dispatch_OverrideBubble + rtl_dispatch_FtqUpdateBubble + rtl_dispatch_TAGEMissBubble + rtl_dispatch_SCMissBubble + rtl_dispatch_ITTAGEMissBubble + rtl_dispatch_RASMissBubble + rtl_dispatch_MemVioRedirectBubble + rtl_dispatch_OtherRedirectBubble + rtl_dispatch_FtqFullStall + rtl_dispatch_ICacheMissBubble + rtl_dispatch_ITLBMissBubble + rtl_dispatch_BTBMissBubble + rtl_dispatch_FetchFragBubble + rtl_dispatch_FrontendOtherCoreStall + rtl_dispatch_IssueCancelStallOg0 + rtl_dispatch_IssueCancelStallOg1 + rtl_dispatch_IssueCancelStallLd + rtl_dispatch_IssueCancelStallSt + rtl_dispatch_IssueCancelStallOther + rtl_dispatch_IssueDelayStall + rtl_dispatch_DivStall + rtl_dispatch_IntNotReadyStall + rtl_dispatch_FPNotReadyStall + rtl_dispatch_MemNotReadyStall + rtl_dispatch_OtherNotReadyStall + rtl_dispatch_RobStall + rtl_dispatch_LqStall + rtl_dispatch_SqStall + rtl_dispatch_IntFlStall + rtl_dispatch_FpFlStall + rtl_dispatch_VecFlStall + rtl_dispatch_V0FlStall + rtl_dispatch_VlFlStall + rtl_dispatch_MultiFlStall + rtl_dispatch_FusionBubble + rtl_dispatch_LoadDispatchPolicyStall + rtl_dispatch_StoreDispatchPolicyStall + rtl_dispatch_OtherDispatchPolicyStall + rtl_dispatch_BalanceDispatchPolicyStallAlu + rtl_dispatch_BalanceDispatchPolicyStallBrh + rtl_dispatch_BalanceDispatchPolicyStallInt + rtl_dispatch_BalanceDispatchPolicyStallFp + rtl_dispatch_BalanceDispatchPolicyStallVec + rtl_dispatch_BalanceDispatchPolicyStallLoad + rtl_dispatch_BalanceDispatchPolicyStallStore + rtl_dispatch_OtherBalanceDispatchPolicyStall + rtl_dispatch_IQEnqPolicyStallIssued + rtl_dispatch_IQEnqPolicyStall + rtl_dispatch_IntIQFullStallAlu + rtl_dispatch_IntIQFullStallBrh + rtl_dispatch_IntIQFullStallOther + rtl_dispatch_FpIQFullStall + rtl_dispatch_VecIQFullStall + rtl_dispatch_LoadIQFullStall + rtl_dispatch_StoreIQFullStall + rtl_dispatch_OtherIQFullStall + rtl_dispatch_RobHeadNotIssued + rtl_dispatch_LoadTLBStall + rtl_dispatch_LoadL1Stall + rtl_dispatch_LoadL2Stall + rtl_dispatch_LoadL3Stall + rtl_dispatch_LoadMemStall + rtl_dispatch_StoreStall + rtl_dispatch_AtomicStall + rtl_dispatch_LoadVioReplayStall + rtl_dispatch_LoadMSHRReplayStall + rtl_dispatch_ControlRedirectStall + rtl_dispatch_MemVioRedirectStall + rtl_dispatch_OtherRedirectStall + rtl_dispatch_ControlRecoveryStall + rtl_dispatch_MemVioRecoveryStall + rtl_dispatch_OtherRecoveryStall + rtl_dispatch_FlushedInsts + rtl_dispatch_SpecialInsts + rtl_dispatch_BackendOtherCoreStall'
+      rtl_dispatch_partition_residual: 'rtl_dispatch_slots - 8 * cycles'
+      rtl_dispatch_unclassified_fraction: 'rtl_dispatch_BackendOtherCoreStall / rtl_dispatch_slots'
+
+  rename_resources:
+    # Event names/units differ. Do not alias these to one common stall metric.
+    base_gem5: '{gem5_cpu_prefix}'
+    gem5_regex:
+      gem5_regfull_events: 'system\.cpu\.rename\.fullRegistersEvents(?:::total)?'
+    xs:
+      rtl_rename_int_stall_cycles: '{perf} .*\.rename: stall_cycle_int,\s+(\d+)'
+      rtl_rename_dispatch_stall_cycles: '{perf} .*\.rename: stall_cycle_dispatch,\s+(\d+)'
+      rtl_rename_recovery_cycles: '{perf} .*\.rename: recovery_stall,\s+(\d+)'

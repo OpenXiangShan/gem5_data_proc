@@ -124,7 +124,8 @@ class RtlIntelTopdownTest(unittest.TestCase):
             self.assertTrue(rtl[metric].isna().all())
 
         gem5 = apply_derived_metrics(frame.copy(), {**loaded.derived_gem5, **loaded.derived})
-        self.assertTrue((gem5['baseRetiring'] == 0.25).all())
+        self.assertAlmostEqual(gem5.loc[0, 'baseRetiring'], 0.125)
+        self.assertAlmostEqual(gem5.loc[1, 'baseRetiring'], 20_000_017 / 80_000_000)
 
 
 class UniqueYamlKeyTest(unittest.TestCase):
