@@ -398,6 +398,11 @@ def main():
     # for x in df.index:
     #     print(x)
 
+    if not xs_stat_fmt:
+        prefetch_columns = set(loaded.group_to_columns.get('l1_prefetch', []))
+        prefetch_columns.update(loaded.group_to_columns.get('l2_prefetch', []))
+        c.fill_missing_gem5_prefetch_counters(df, prefetch_columns)
+
     df = apply_derived_metrics(df, yaml_derived)
 
     # Keep CSV columns in YAML definition order (plus any extra columns at the end),

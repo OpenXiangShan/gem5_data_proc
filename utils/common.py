@@ -4,6 +4,7 @@ from os.path import expanduser as expu
 import re
 import json
 from copy import deepcopy
+import numpy as np
 import pandas as pd
 
 from local_configs import Env
@@ -341,8 +342,9 @@ def xs_get_stats(stat_file: str, targets: list,
                     else:
                         if mshr_id not in mshr_latency[bank][bucket]:
                             mshr_latency[bank][bucket][mshr_id] = count
-    for k in accumulate_table:
-        stats[k] = sum(accumulate_table[k][1][-accumulate_table[k][0]:])
+    for k, (count, values) in accumulate_table.items():
+        if values:
+            stats[k] = sum(values[-count:])
     
     desired_keys = set(patterns.keys())
     obtained_keys = set(stats.keys())
@@ -704,6 +706,207 @@ def xs_add_mem_bw(d: dict) -> None:
     clock_rate = 3e9
     d['DRAM read MBytes/s'] = d['DRAM read Bytes'] / d['total_cycles'] / 1024 / 1024 * clock_rate
     d['DRAM total MBytes/s'] = (d['DRAM read Bytes'] + d['DRAM write Bytes']) / d['total_cycles'] / 1024 / 1024 * clock_rate
+
+
+def _prefetch_safe_ratio(num: pd.Series, den: pd.Series) -> pd.Series:
+    out = num / den.replace(0, np.nan)
+    return out.replace([np.inf, -np.inf], np.nan)
+
+
+def _prefetch_recompute_ratio(
+    df: pd.DataFrame,
+    output_col: str,
+    numerator_col: str,
+    denominator_cols: list[str],
+) -> None:
+    """Recompute a ratio only when all numerator/denominator counters exist."""
+    required = [numerator_col, *denominator_cols]
+    if any(col not in df.columns for col in required):
+        return
+
+    numerator = df[numerator_col]
+    denominator = df[denominator_cols].sum(axis=1, min_count=len(denominator_cols))
+    df[output_col] = _prefetch_safe_ratio(numerator, denominator)
+
+
+def recompute_prefetch_derived_metrics(df: pd.DataFrame) -> None:
+    """Rebuild prefetch ratios from already aggregated source counters.
+
+    SimPoint weighting is linear for counters but not for ratios. Calling this
+    after weighting keeps demand and prefetch ratios meaningful even when an
+    individual point has a zero denominator.
+    """
+    for output_col, numerator_col, denominator_col in (
+        ('l1_read_miss_rate', 'l1_read_miss', 'l1_read_access'),
+        ('l2_l1pf_miss_rate', 'l2_l1pf_miss', 'l2_l1pf_access'),
+        ('l2_store_miss_rate', 'l2_store_miss', 'l2_store_access'),
+        ('l2_load_miss_rate', 'l2_load_miss', 'l2_load_access'),
+    ):
+        _prefetch_recompute_ratio(
+            df,
+            output_col,
+            numerator_col,
+            [denominator_col],
+        )
+
+    l1_prefetchers = ('stream', 'stride')
+    for prefetcher in l1_prefetchers:
+        issued = f'l1_{prefetcher}_issued'
+        useful = f'l1_{prefetcher}_useful'
+        unused = f'l1_{prefetcher}_unused'
+        _prefetch_recompute_ratio(df, f'l1_{prefetcher}_useful_rate', useful, [issued])
+        _prefetch_recompute_ratio(df, f'l1_{prefetcher}_accuracy', useful, [useful, unused])
+        _prefetch_recompute_ratio(
+            df,
+            f'l1_{prefetcher}_coverage',
+            useful,
+            [useful, 'l1_demand_mshr_miss'],
+        )
+
+    if {'l1_stream_issued', 'l1_stride_issued'}.issubset(df.columns):
+        df['l1_total_issued'] = df['l1_stream_issued'] + df['l1_stride_issued']
+    if {'l1_stream_useful', 'l1_stride_useful'}.issubset(df.columns):
+        df['l1_total_useful'] = df['l1_stream_useful'] + df['l1_stride_useful']
+    if {'l1_stream_unused', 'l1_stride_unused'}.issubset(df.columns):
+        df['l1_total_unused'] = df['l1_stream_unused'] + df['l1_stride_unused']
+    if {'l1_stream_late', 'l1_stride_late'}.issubset(df.columns):
+        df['l1_total_late'] = df['l1_stream_late'] + df['l1_stride_late']
+    _prefetch_recompute_ratio(
+        df,
+        'l1_total_accuracy',
+        'l1_total_useful',
+        ['l1_total_useful', 'l1_total_unused'],
+    )
+    _prefetch_recompute_ratio(
+        df,
+        'l1_total_coverage',
+        'l1_total_useful',
+        ['l1_total_useful', 'l1_demand_mshr_miss'],
+    )
+    _prefetch_recompute_ratio(
+        df,
+        'l1_total_useful_rate',
+        'l1_total_useful',
+        ['l1_total_issued'],
+    )
+
+    l2_prefetchers = ('stream', 'stride', 'sms', 'bop')
+    for prefetcher in l2_prefetchers:
+        issued = f'l2_{prefetcher}_issued'
+        useful = f'l2_{prefetcher}_useful'
+        late = f'l2_{prefetcher}_late'
+        unused = f'l2_{prefetcher}_unused'
+        if {issued, useful, late}.issubset(df.columns):
+            df[unused] = df[issued] - df[useful] - df[late]
+        _prefetch_recompute_ratio(df, f'l2_{prefetcher}_useful_rate', useful, [issued])
+        _prefetch_recompute_ratio(df, f'l2_{prefetcher}_accuracy', useful, [useful, unused])
+        _prefetch_recompute_ratio(
+            df,
+            f'l2_{prefetcher}_coverage',
+            useful,
+            [useful, 'l2_demand_mshr_miss'],
+        )
+        _prefetch_recompute_ratio(
+            df,
+            f'gem5_l2_{prefetcher}_accuracy_exact',
+            useful,
+            [useful, f'gem5_l2_{prefetcher}_unused_exact'],
+        )
+
+    _prefetch_recompute_ratio(
+        df,
+        'gem5_l2_cmc_accuracy_exact',
+        'gem5_l2_cmc_useful',
+        ['gem5_l2_cmc_useful', 'gem5_l2_cmc_unused_exact'],
+    )
+    _prefetch_recompute_ratio(
+        df,
+        'gem5_l2_cmc_coverage',
+        'gem5_l2_cmc_useful',
+        ['gem5_l2_cmc_useful', 'l2_demand_mshr_miss'],
+    )
+
+    l2_issued_cols = [f'l2_{p}_issued' for p in l2_prefetchers]
+    l2_useful_cols = [f'l2_{p}_useful' for p in l2_prefetchers]
+    if set(l2_issued_cols).issubset(df.columns):
+        df['l2_total_issued'] = df[l2_issued_cols].sum(axis=1, min_count=len(l2_issued_cols))
+    if set(l2_useful_cols).issubset(df.columns):
+        df['l2_total_useful'] = df[l2_useful_cols].sum(axis=1, min_count=len(l2_useful_cols))
+    l2_unused_cols = [f'l2_{p}_unused' for p in l2_prefetchers]
+    l2_late_cols = [f'l2_{p}_late' for p in l2_prefetchers]
+    if set(l2_unused_cols).issubset(df.columns):
+        df['l2_total_unused'] = df[l2_unused_cols].sum(axis=1, min_count=len(l2_unused_cols))
+    if set(l2_late_cols).issubset(df.columns):
+        df['l2_total_late'] = df[l2_late_cols].sum(axis=1, min_count=len(l2_late_cols))
+    _prefetch_recompute_ratio(
+        df,
+        'l2_total_accuracy',
+        'l2_total_useful',
+        ['l2_total_useful', 'l2_total_unused'],
+    )
+    _prefetch_recompute_ratio(
+        df,
+        'l2_total_coverage',
+        'l2_total_useful',
+        ['l2_total_useful', 'l2_demand_mshr_miss'],
+    )
+    _prefetch_recompute_ratio(
+        df,
+        'l2_total_useful_rate',
+        'l2_total_useful',
+        ['l2_total_issued'],
+    )
+
+
+_GEM5_PREFETCH_ZERO_FILL_COLUMNS = (
+    'l1_stream_issued',
+    'l1_stream_useful',
+    'l1_stream_unused',
+    'l1_stream_late',
+    'l1_stride_issued',
+    'l1_stride_useful',
+    'l1_stride_unused',
+    'l1_stride_late',
+    'l2_stream_issued',
+    'l2_stream_useful',
+    'gem5_l2_stream_unused_exact',
+    'l2_stream_late',
+    'l2_stride_issued',
+    'l2_stride_useful',
+    'gem5_l2_stride_unused_exact',
+    'l2_stride_late',
+    'l2_sms_issued',
+    'l2_sms_useful',
+    'gem5_l2_sms_unused_exact',
+    'l2_sms_late',
+    'l2_bop_issued',
+    'l2_bop_useful',
+    'gem5_l2_bop_unused_exact',
+    'l2_bop_late',
+    'gem5_l2_cmc_issued',
+    'gem5_l2_cmc_useful',
+    'gem5_l2_cmc_unused_exact',
+    'gem5_l2_cmc_late',
+)
+
+
+def fill_missing_gem5_prefetch_counters(
+    df: pd.DataFrame,
+    enabled_columns: set[str],
+) -> None:
+    """Treat omitted GEM5 prefetch source counters as zero.
+
+    GEM5 suppresses several zero-valued source breakdowns. This normalization
+    applies only to the known L1/L2 prefetch source counters, before derived
+    metrics are evaluated. Ratios with a zero denominator remain NaN.
+    """
+    for col in _GEM5_PREFETCH_ZERO_FILL_COLUMNS:
+        if col not in enabled_columns:
+            continue
+        if col in df.columns:
+            df[col] = df[col].fillna(0)
+        else:
+            df[col] = 0
 
 topdown_filter = [
     'layer1_frontend_bound',

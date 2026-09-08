@@ -195,6 +195,11 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
     fp_benchmarks = u.spec_bmks[spec_v]['float']
     weighted_df = weighted_df.reindex(int_benchmarks + fp_benchmarks)
 
+    # Counters can be weighted directly, but prefetch ratios cannot.  Rebuild
+    # them from their weighted source counters so a zero-denominator point does
+    # not turn the benchmark-level metric into NaN.
+    c.recompute_prefetch_derived_metrics(weighted_df)
+
     if 'cpi' in weighted_df.columns:
         # weighted_df = weighted_df.sort_values(by='cpi', ascending=False) 
         pass
