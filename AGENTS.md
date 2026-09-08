@@ -1,7 +1,5 @@
 # Repository Guidelines
 
-修改前请先给出可能的修改思路，我确认后再开始修改。
-
 ## Project Structure & Module Organization
 - `batch.py`：主入口，将 GEM5/XS 的统计日志解析为 CSV（见 `batch.py -h`）。
 - `utils/`：统计项（targets）定义与工具（重点看 `utils/target_stats.py`，基于正则匹配）。
