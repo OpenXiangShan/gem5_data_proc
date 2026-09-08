@@ -2,7 +2,7 @@ import os
 import os.path as osp
 import re
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from utils.target_patterns import gem5_glob_to_stat_regex
 
@@ -32,11 +32,43 @@ def _join_stat(base: str, suffix: str) -> str:
     return base + "." + suffix
 
 
+def _as_string_list(v: object) -> List[str]:
+    if isinstance(v, (list, tuple)):
+        out = [str(x).strip() for x in v if str(x).strip()]
+        if not out:
+            raise ValueError("empty gem5 target alternatives are not supported")
+        return out
+    s = str(v).strip()
+    if not s:
+        raise ValueError("empty gem5 target is not supported")
+    return [s]
+
+
+def _format_xs_target(v: object, xs_fmt: Optional[str], macros: Dict[str, str]) -> object:
+    if isinstance(v, (list, tuple)):
+        if len(v) != 2:
+            raise ValueError("xs accumulated target must be [pattern, count]")
+        stat_pat = _format_macros(str(v[0]).strip(), macros)
+        if not stat_pat:
+            raise ValueError("empty xs accumulated target pattern is not supported")
+        try:
+            repeat = int(v[1])
+        except Exception as e:
+            raise ValueError("xs accumulated target count must be an integer") from e
+        if repeat <= 0:
+            raise ValueError("xs accumulated target count must be positive")
+        compiled = xs_fmt.replace("{stat}", stat_pat) if xs_fmt is not None else stat_pat
+        return [compiled, repeat]
+
+    xs_val_s = _format_macros(str(v), macros)
+    return xs_fmt.replace("{stat}", xs_val_s) if xs_fmt is not None else xs_val_s
+
+
 @dataclass(frozen=True)
 class LoadedYamlTargets:
     groups: List[str]
     gem5_targets: Dict[str, str]
-    xs_targets: Dict[str, str]
+    xs_targets: Dict[str, Any]
     derived_gem5: Dict[str, str]
     derived_xs: Dict[str, str]
     derived: Dict[str, str]
@@ -126,7 +158,7 @@ def load_groups(
         raise FileNotFoundError(f"no targets yaml files found under: {', '.join(dirs)}")
 
     gem5_targets: Dict[str, str] = {}
-    xs_targets: Dict[str, str] = {}
+    xs_targets: Dict[str, Any] = {}
     derived_gem5: Dict[str, str] = {}
     derived_xs: Dict[str, str] = {}
     derived: Dict[str, str] = {}
@@ -218,11 +250,19 @@ def load_groups(
                 col = str(col).strip()
                 if not col:
                     continue
-                if col in gem5_targets and gem5_targets[col] != str(suffix):
+                compiled_parts: List[str] = []
+                for suffix_item in _as_string_list(suffix):
+                    full = _join_stat(base_gem5, suffix_item)
+                    full = _format_macros(full, macros)
+                    compiled_parts.append(gem5_glob_to_stat_regex(full))
+                compiled = (
+                    compiled_parts[0]
+                    if len(compiled_parts) == 1
+                    else "(?:" + "|".join(compiled_parts) + ")"
+                )
+                if col in gem5_targets and gem5_targets[col] != compiled:
                     raise ValueError(f"duplicate gem5 column {col!r} across yaml files/groups")
-                full = _join_stat(base_gem5, str(suffix))
-                full = _format_macros(full, macros)
-                gem5_targets[col] = gem5_glob_to_stat_regex(full)
+                gem5_targets[col] = compiled
 
             for col, pattern in gem5_regex_map.items():
                 col = str(col).strip()
@@ -239,13 +279,10 @@ def load_groups(
                 col = str(col).strip()
                 if not col:
                     continue
-                if col in xs_targets and xs_targets[col] != str(xs_val):
+                formatted_xs = _format_xs_target(xs_val, xs_fmt, macros)
+                if col in xs_targets and xs_targets[col] != formatted_xs:
                     raise ValueError(f"duplicate xs column {col!r} across yaml files/groups")
-                xs_val_s = _format_macros(str(xs_val), macros)
-                if xs_fmt is not None:
-                    xs_targets[col] = xs_fmt.replace("{stat}", xs_val_s)
-                else:
-                    xs_targets[col] = xs_val_s
+                xs_targets[col] = formatted_xs
 
             for col, expr in derived_map.items():
                 col = str(col).strip()

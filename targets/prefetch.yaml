@@ -1,0 +1,253 @@
+domain: prefetch
+
+defaults:
+  gem5_cpu_prefix: system.cpu
+  # Some logs print `[time=14539151]` (no space after `=`), some print `[time= 14539151]`.
+  perf: "\\[PERF \\]\\[time=\\s*\\d+\\]"
+
+# The L1 counter mapping in docs/PREFETCH_COUNTERS.md is interpreted by semantics:
+# - GEM5 pfIssued_srcs::*  <-> XS l1prefetchSent*
+# - GEM5 pfUseful_srcs::* <-> XS l1prefetchHit*
+#
+# Backend-specific derived expressions normalize counters after extraction:
+# - XS L1 demand read miss/access are split across LoadUnit_0/1/2.
+# - XS L2 BOP counters are split into BOP + PBOP.
+# - GEM5 L2 cache counters are split across slices0/1/2/3.
+
+groups:
+  l1_demand_read:
+    base_gem5: "{gem5_cpu_prefix}.dcache"
+    gem5:
+      gem5_l1_read_access_raw: "ReadReq.accesses::total"
+      gem5_l1_read_miss_raw: "ReadReq.misses::total"
+    xs:
+      xs_l1_read_access_lu0: "{perf} .*\\.LoadUnit_0(?:\\.s2)?: (?:s2_in_fire_first_issue|fire_first_issue),\\s+(\\d+)"
+      xs_l1_read_access_lu1: "{perf} .*\\.LoadUnit_1(?:\\.s2)?: (?:s2_in_fire_first_issue|fire_first_issue),\\s+(\\d+)"
+      xs_l1_read_access_lu2: "{perf} .*\\.LoadUnit_2(?:\\.s2)?: (?:s2_in_fire_first_issue|fire_first_issue),\\s+(\\d+)"
+      xs_l1_read_miss_lu0: "{perf} .*\\.LoadUnit_0(?:\\.s2)?: (?:s2_dcache_real_miss_first_issue|dcache_miss_first_issue),\\s+(\\d+)"
+      xs_l1_read_miss_lu1: "{perf} .*\\.LoadUnit_1(?:\\.s2)?: (?:s2_dcache_real_miss_first_issue|dcache_miss_first_issue),\\s+(\\d+)"
+      xs_l1_read_miss_lu2: "{perf} .*\\.LoadUnit_2(?:\\.s2)?: (?:s2_dcache_real_miss_first_issue|dcache_miss_first_issue),\\s+(\\d+)"
+    derived_gem5:
+      l1_read_access: "gem5_l1_read_access_raw"
+      l1_read_miss: "gem5_l1_read_miss_raw"
+    derived_xs:
+      l1_read_access: "xs_l1_read_access_lu0 + xs_l1_read_access_lu1 + xs_l1_read_access_lu2"
+      l1_read_miss: "xs_l1_read_miss_lu0 + xs_l1_read_miss_lu1 + xs_l1_read_miss_lu2"
+    derived:
+      l1_read_hit: "l1_read_access - l1_read_miss"
+      l1_read_miss_rate: "l1_read_miss / l1_read_access"
+
+  # Group by request source semantics: these counters describe L1 prefetchers and
+  # how their requests behave once they reach L2.
+  l1_prefetch:
+    gem5:
+      l1_stream_issued:
+        - "{gem5_cpu_prefix}.dcache.prefetcher.pfIssued_srcs::1"
+        - "{gem5_cpu_prefix}.dcache.prefetcher.pfIssued_srcs::SStream"
+      l1_stream_useful:
+        - "{gem5_cpu_prefix}.dcache.prefetcher.pfUseful_srcs::1"
+        - "{gem5_cpu_prefix}.dcache.prefetcher.pfUseful_srcs::SStream"
+      l1_stream_unused:
+        - "{gem5_cpu_prefix}.dcache.prefetcher.pfUnused_srcs::1"
+        - "{gem5_cpu_prefix}.dcache.prefetcher.pfUnused_srcs::SStream"
+      l1_stream_late:
+        - "{gem5_cpu_prefix}.dcache.prefetcher.late_srcs::1"
+        - "{gem5_cpu_prefix}.dcache.prefetcher.late_srcs::SStream"
+      l1_stride_issued:
+        - "{gem5_cpu_prefix}.dcache.prefetcher.pfIssued_srcs::2"
+        - "{gem5_cpu_prefix}.dcache.prefetcher.pfIssued_srcs::SStride"
+      l1_stride_useful:
+        - "{gem5_cpu_prefix}.dcache.prefetcher.pfUseful_srcs::2"
+        - "{gem5_cpu_prefix}.dcache.prefetcher.pfUseful_srcs::SStride"
+      l1_stride_unused:
+        - "{gem5_cpu_prefix}.dcache.prefetcher.pfUnused_srcs::2"
+        - "{gem5_cpu_prefix}.dcache.prefetcher.pfUnused_srcs::SStride"
+      l1_stride_late:
+        - "{gem5_cpu_prefix}.dcache.prefetcher.late_srcs::2"
+        - "{gem5_cpu_prefix}.dcache.prefetcher.late_srcs::SStride"
+      gem5_l2_l1pf_access_s0: "l2_wrappers.slices0.inner_cache.ReadExReq.accesses::cpu.dcache.prefetcher"
+      gem5_l2_l1pf_access_s1: "l2_wrappers.slices1.inner_cache.ReadExReq.accesses::cpu.dcache.prefetcher"
+      gem5_l2_l1pf_access_s2: "l2_wrappers.slices2.inner_cache.ReadExReq.accesses::cpu.dcache.prefetcher"
+      gem5_l2_l1pf_access_s3: "l2_wrappers.slices3.inner_cache.ReadExReq.accesses::cpu.dcache.prefetcher"
+      gem5_l2_l1pf_miss_s0: "l2_wrappers.slices0.inner_cache.ReadExReq.misses::cpu.dcache.prefetcher"
+      gem5_l2_l1pf_miss_s1: "l2_wrappers.slices1.inner_cache.ReadExReq.misses::cpu.dcache.prefetcher"
+      gem5_l2_l1pf_miss_s2: "l2_wrappers.slices2.inner_cache.ReadExReq.misses::cpu.dcache.prefetcher"
+      gem5_l2_l1pf_miss_s3: "l2_wrappers.slices3.inner_cache.ReadExReq.misses::cpu.dcache.prefetcher"
+      l1_demand_mshr_miss: "{gem5_cpu_prefix}.dcache.prefetcher.demandMshrMisses"
+    xs:
+      l1_stream_issued: "{perf} .*\\.prefetcherMonitor\\.StreamMonitor: l1prefetchSentStream,\\s+(\\d+)"
+      l1_stream_useful: "{perf} .*\\.prefetcherMonitor\\.StreamMonitor: l1prefetchHitStream,\\s+(\\d+)"
+      l1_stream_unused: "{perf} .*\\.prefetcherMonitor\\.StreamMonitor: l1prefetchUselessStream,\\s+(\\d+)"
+      l1_stream_late: "{perf} .*\\.prefetcherMonitor\\.StreamMonitor: l1prefetchLateStream,\\s+(\\d+)"
+      l1_stride_issued: "{perf} .*\\.prefetcherMonitor\\.StrideMonitor: l1prefetchSentStride,\\s+(\\d+)"
+      l1_stride_useful: "{perf} .*\\.prefetcherMonitor\\.StrideMonitor: l1prefetchHitStride,\\s+(\\d+)"
+      l1_stride_unused: "{perf} .*\\.prefetcherMonitor\\.StrideMonitor: l1prefetchUselessStride,\\s+(\\d+)"
+      l1_stride_late: "{perf} .*\\.prefetcherMonitor\\.StrideMonitor: l1prefetchLateStride,\\s+(\\d+)"
+      l1_demand_mshr_miss: "{perf} .*\\.dcache(?:\\.dcache)?\\.prefetcherMonitor: mshr_count_CPU,\\s+(\\d+)"
+      l2_l1pf_access: "{perf} .*\\.l2cache\\.topDown: E2_L2AReqSource_L1DataPrefetch_Total,\\s+(\\d+)"
+      l2_l1pf_miss: "{perf} .*\\.l2cache\\.topDown: E2_L2AReqSource_L1DataPrefetch_Miss,\\s+(\\d+)"
+    derived_gem5:
+      l2_l1pf_access: "gem5_l2_l1pf_access_s0 + gem5_l2_l1pf_access_s1 + gem5_l2_l1pf_access_s2 + gem5_l2_l1pf_access_s3"
+      l2_l1pf_miss: "gem5_l2_l1pf_miss_s0 + gem5_l2_l1pf_miss_s1 + gem5_l2_l1pf_miss_s2 + gem5_l2_l1pf_miss_s3"
+    derived:
+      l1_stream_useful_rate: "l1_stream_useful / l1_stream_issued"
+      l1_stream_accuracy: "l1_stream_useful / (l1_stream_useful + l1_stream_unused)"
+      l1_stream_coverage: "l1_stream_useful / (l1_stream_useful + l1_demand_mshr_miss)"
+      l1_stride_useful_rate: "l1_stride_useful / l1_stride_issued"
+      l1_stride_accuracy: "l1_stride_useful / (l1_stride_useful + l1_stride_unused)"
+      l1_stride_coverage: "l1_stride_useful / (l1_stride_useful + l1_demand_mshr_miss)"
+      l1_total_issued: "l1_stream_issued + l1_stride_issued"
+      l1_total_useful: "l1_stream_useful + l1_stride_useful"
+      l1_total_unused: "l1_stream_unused + l1_stride_unused"
+      l1_total_late: "l1_stream_late + l1_stride_late"
+      l1_total_accuracy: "l1_total_useful / (l1_total_useful + l1_total_unused)"
+      l1_total_coverage: "l1_total_useful / (l1_total_useful + l1_demand_mshr_miss)"
+      l1_total_useful_rate: "l1_total_useful / l1_total_issued"
+      l2_l1pf_hit: "l2_l1pf_access - l2_l1pf_miss"
+      l2_l1pf_miss_rate: "l2_l1pf_miss / l2_l1pf_access"
+
+  l2_demand:
+    xs_fmt: "{perf} .*\\.l2cache\\.topDown: {stat},\\s+(\\d+)"
+    gem5:
+      gem5_l2_store_access_s0: "l2_wrappers.slices0.inner_cache.ReadExReq.accesses::cpu.data"
+      gem5_l2_store_access_s1: "l2_wrappers.slices1.inner_cache.ReadExReq.accesses::cpu.data"
+      gem5_l2_store_access_s2: "l2_wrappers.slices2.inner_cache.ReadExReq.accesses::cpu.data"
+      gem5_l2_store_access_s3: "l2_wrappers.slices3.inner_cache.ReadExReq.accesses::cpu.data"
+      gem5_l2_store_miss_s0: "l2_wrappers.slices0.inner_cache.ReadExReq.misses::cpu.data"
+      gem5_l2_store_miss_s1: "l2_wrappers.slices1.inner_cache.ReadExReq.misses::cpu.data"
+      gem5_l2_store_miss_s2: "l2_wrappers.slices2.inner_cache.ReadExReq.misses::cpu.data"
+      gem5_l2_store_miss_s3: "l2_wrappers.slices3.inner_cache.ReadExReq.misses::cpu.data"
+      gem5_l2_load_access_s0: "l2_wrappers.slices0.inner_cache.ReadSharedReq.accesses::cpu.data"
+      gem5_l2_load_access_s1: "l2_wrappers.slices1.inner_cache.ReadSharedReq.accesses::cpu.data"
+      gem5_l2_load_access_s2: "l2_wrappers.slices2.inner_cache.ReadSharedReq.accesses::cpu.data"
+      gem5_l2_load_access_s3: "l2_wrappers.slices3.inner_cache.ReadSharedReq.accesses::cpu.data"
+      gem5_l2_load_miss_s0: "l2_wrappers.slices0.inner_cache.ReadSharedReq.misses::cpu.data"
+      gem5_l2_load_miss_s1: "l2_wrappers.slices1.inner_cache.ReadSharedReq.misses::cpu.data"
+      gem5_l2_load_miss_s2: "l2_wrappers.slices2.inner_cache.ReadSharedReq.misses::cpu.data"
+      gem5_l2_load_miss_s3: "l2_wrappers.slices3.inner_cache.ReadSharedReq.misses::cpu.data"
+    xs:
+      l2_store_access: E2_L2AReqSource_CPUStoreData_Total
+      l2_store_miss: E2_L2AReqSource_CPUStoreData_Miss
+      l2_load_access: E2_L2AReqSource_CPULoadData_Total
+      l2_load_miss: E2_L2AReqSource_CPULoadData_Miss
+    derived_gem5:
+      l2_store_access: "gem5_l2_store_access_s0 + gem5_l2_store_access_s1 + gem5_l2_store_access_s2 + gem5_l2_store_access_s3"
+      l2_store_miss: "gem5_l2_store_miss_s0 + gem5_l2_store_miss_s1 + gem5_l2_store_miss_s2 + gem5_l2_store_miss_s3"
+      l2_load_access: "gem5_l2_load_access_s0 + gem5_l2_load_access_s1 + gem5_l2_load_access_s2 + gem5_l2_load_access_s3"
+      l2_load_miss: "gem5_l2_load_miss_s0 + gem5_l2_load_miss_s1 + gem5_l2_load_miss_s2 + gem5_l2_load_miss_s3"
+    derived:
+      l2_store_hit: "l2_store_access - l2_store_miss"
+      l2_store_miss_rate: "l2_store_miss / l2_store_access"
+      l2_load_hit: "l2_load_access - l2_load_miss"
+      l2_load_miss_rate: "l2_load_miss / l2_load_access"
+
+  l2_prefetch:
+    base_gem5: "l2_wrappers.prefetcher"
+    xs_fmt: "{perf} .*\\.l2cache\\.topDown: {stat},\\s+(\\d+)"
+    gem5:
+      l2_stream_issued:
+        - "pfIssued_srcs::1"
+        - "pfIssued_srcs::SStream"
+      l2_stream_useful:
+        - "pfUseful_srcs::1"
+        - "pfUseful_srcs::SStream"
+      gem5_l2_stream_unused_exact:
+        - "pfUnused_srcs::1"
+        - "pfUnused_srcs::SStream"
+      l2_stream_late:
+        - "late_srcs::1"
+        - "late_srcs::SStream"
+      l2_stride_issued:
+        - "pfIssued_srcs::2"
+        - "pfIssued_srcs::SStride"
+      l2_stride_useful:
+        - "pfUseful_srcs::2"
+        - "pfUseful_srcs::SStride"
+      gem5_l2_stride_unused_exact:
+        - "pfUnused_srcs::2"
+        - "pfUnused_srcs::SStride"
+      l2_stride_late:
+        - "late_srcs::2"
+        - "late_srcs::SStride"
+      l2_sms_issued:
+        - "pfIssued_srcs::3"
+        - "pfIssued_srcs::SPht"
+      l2_sms_useful:
+        - "pfUseful_srcs::3"
+        - "pfUseful_srcs::SPht"
+      gem5_l2_sms_unused_exact:
+        - "pfUnused_srcs::3"
+        - "pfUnused_srcs::SPht"
+      l2_sms_late:
+        - "late_srcs::3"
+        - "late_srcs::SPht"
+      l2_bop_issued:
+        - "pfIssued_srcs::4"
+        - "pfIssued_srcs::HWP_BOP"
+      l2_bop_useful:
+        - "pfUseful_srcs::4"
+        - "pfUseful_srcs::HWP_BOP"
+      gem5_l2_bop_unused_exact:
+        - "pfUnused_srcs::4"
+        - "pfUnused_srcs::HWP_BOP"
+      l2_bop_late:
+        - "late_srcs::4"
+        - "late_srcs::HWP_BOP"
+      gem5_l2_cmc_issued:
+        - "pfIssued_srcs::CMC"
+      gem5_l2_cmc_useful: "pfUseful_srcs::CMC"
+      gem5_l2_cmc_unused_exact: "pfUnused_srcs::CMC"
+      gem5_l2_cmc_late: "late_srcs::CMC"
+      l2_demand_mshr_miss: "demandMshrMisses"
+    xs:
+      l2_stream_issued: l2prefetchSentStream
+      l2_stream_useful: "l2prefetch(?:Useful|Hit)Stream"
+      l2_stream_late: l2prefetchLateStream
+      l2_stride_issued: l2prefetchSentStride
+      l2_stride_useful: "l2prefetch(?:Useful|Hit)Stride"
+      l2_stride_late: l2prefetchLateStride
+      l2_sms_issued: l2prefetchSentSMS
+      l2_sms_useful: "l2prefetch(?:Useful|Hit)SMS"
+      l2_sms_late: l2prefetchLateSMS
+      l2_bop_issued:
+        - "l2prefetchSent(?:BOP|PBOP)"
+        - 2
+      l2_bop_useful:
+        - "l2prefetch(?:Useful|Hit)(?:BOP|PBOP)"
+        - 2
+      l2_bop_late:
+        - "l2prefetchLate(?:BOP|PBOP)"
+        - 2
+      l2_demand_mshr_miss: mshr_count_CPU
+    derived:
+      l2_stream_useful_rate: "l2_stream_useful / l2_stream_issued"
+      # RTL has no L2 unused counter.  Use issued-useful-late as an approximation
+      # for cross-platform comparison; GEM5 exact values remain in *_exact columns.
+      l2_stream_unused: "l2_stream_issued - l2_stream_useful - l2_stream_late"
+      l2_stream_accuracy: "l2_stream_useful / (l2_stream_useful + l2_stream_unused)"
+      l2_stream_coverage: "l2_stream_useful / (l2_stream_useful + l2_demand_mshr_miss)"
+      gem5_l2_stream_accuracy_exact: "l2_stream_useful / (l2_stream_useful + gem5_l2_stream_unused_exact)"
+      l2_stride_useful_rate: "l2_stride_useful / l2_stride_issued"
+      l2_stride_unused: "l2_stride_issued - l2_stride_useful - l2_stride_late"
+      l2_stride_accuracy: "l2_stride_useful / (l2_stride_useful + l2_stride_unused)"
+      l2_stride_coverage: "l2_stride_useful / (l2_stride_useful + l2_demand_mshr_miss)"
+      gem5_l2_stride_accuracy_exact: "l2_stride_useful / (l2_stride_useful + gem5_l2_stride_unused_exact)"
+      l2_sms_useful_rate: "l2_sms_useful / l2_sms_issued"
+      l2_sms_unused: "l2_sms_issued - l2_sms_useful - l2_sms_late"
+      l2_sms_accuracy: "l2_sms_useful / (l2_sms_useful + l2_sms_unused)"
+      l2_sms_coverage: "l2_sms_useful / (l2_sms_useful + l2_demand_mshr_miss)"
+      gem5_l2_sms_accuracy_exact: "l2_sms_useful / (l2_sms_useful + gem5_l2_sms_unused_exact)"
+      l2_bop_unused: "l2_bop_issued - l2_bop_useful - l2_bop_late"
+      l2_bop_accuracy: "l2_bop_useful / (l2_bop_useful + l2_bop_unused)"
+      l2_bop_coverage: "l2_bop_useful / (l2_bop_useful + l2_demand_mshr_miss)"
+      gem5_l2_bop_accuracy_exact: "l2_bop_useful / (l2_bop_useful + gem5_l2_bop_unused_exact)"
+      gem5_l2_cmc_accuracy_exact: "gem5_l2_cmc_useful / (gem5_l2_cmc_useful + gem5_l2_cmc_unused_exact)"
+      gem5_l2_cmc_coverage: "gem5_l2_cmc_useful / (gem5_l2_cmc_useful + l2_demand_mshr_miss)"
+      l2_bop_useful_rate: "l2_bop_useful / l2_bop_issued"
+      l2_total_issued: "l2_stream_issued + l2_stride_issued + l2_sms_issued + l2_bop_issued"
+      l2_total_useful: "l2_stream_useful + l2_stride_useful + l2_sms_useful + l2_bop_useful"
+      l2_total_unused: "l2_stream_unused + l2_stride_unused + l2_sms_unused + l2_bop_unused"
+      l2_total_late: "l2_stream_late + l2_stride_late + l2_sms_late + l2_bop_late"
+      l2_total_accuracy: "l2_total_useful / (l2_total_useful + l2_total_unused)"
+      l2_total_coverage: "l2_total_useful / (l2_total_useful + l2_demand_mshr_miss)"
+      l2_total_useful_rate: "l2_total_useful / l2_total_issued"

@@ -97,7 +97,20 @@ Common extra groups:
 ``` shell
 python3 run.py /path/to/results --out-dir results -g basic,branch,fetch
 python3 run.py /path/to/results --out-dir results -g basic,intel_topdown
+python3 run.py /path/to/results --out-dir results -g basic,l1_demand_read,l1_prefetch,l2_demand,l2_prefetch
 ```
+
+Prefetch notes:
+- `l1_demand_read` normalizes GEM5 L1 demand-read miss/access counters against
+  XS `LoadUnit_0/1/2` sums.
+- `l1_prefetch` groups both L1 prefetcher issued/useful counters and the
+  `l2_l1pf_*` counters, because those L2 counters describe requests originating
+  from L1 prefetchers.
+- `l2_demand` groups L2 load/store demand counters.
+- `l2_prefetch` normalizes GEM5 BOP counters against XS `BOP + PBOP`.
+- The normalization happens automatically inside `batch.py` after YAML
+  extraction, so the output CSV includes both raw helper columns and comparable
+  semantic columns such as `l1_read_*` and `l2_bop_*`.
 
 Local (not committed) extensions can be put under `targets/local/*.yaml` (gitignored).
 
