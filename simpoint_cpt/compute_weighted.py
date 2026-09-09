@@ -134,6 +134,11 @@ def compute_weighted_metrics(csv_path: str, js_path: str, out_csv: str, args):
     if missing:
         raise SystemExit(f"Error: input CSV missing required columns: {', '.join(sorted(missing))}")
 
+    # Historical SPEC26 CSVs used official names such as ``721.gcc`` while
+    # SPEC06/17 used ``gcc``.  Keep accepting both formats, but use the short
+    # benchmark name for all grouping and output.
+    df['bmk'] = df['bmk'].map(u.canonical_benchmark_name)
+
     # Preserve input CSV column order (batch.py already emits YAML-ordered columns).
     with open(js_path, 'r') as f:
         js = json.load(f)

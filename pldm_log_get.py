@@ -3,6 +3,8 @@ import re
 import os  
 import csv  
 
+from utils.spec_info import canonical_benchmark_name
+
 def extract_info_from_log(file_path):
     #print(f"get file: {file_path}")
 
@@ -49,7 +51,7 @@ def main():
                 workload, point, instrCnt, cycleCnt, IPC, weights = extract_info_from_log(file_path)
                 if all([workload, point, instrCnt, cycleCnt, IPC, weights]):
                     program_name = f"{workload}_{point}"
-                    bmk = workload.split('_')[0]
+                    bmk = canonical_benchmark_name(workload.split('_')[0])
                     writer.writerow([program_name, workload, bmk, point, instrCnt, cycleCnt, IPC, weights])
 
 if __name__ == '__main__':

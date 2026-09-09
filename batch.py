@@ -357,9 +357,9 @@ def main():
                 d['point'] = segments[-1]
                 d['workload'] = '_'.join(segments[:-1])
                 if opt.nix: # nix path is <num>_<benchmark>_checkpoint_<point>
-                    d['bmk'] = segments[1]
+                    d['bmk'] = u.canonical_benchmark_name(segments[1])
                 else:
-                    d['bmk'] = segments[0]
+                    d['bmk'] = u.canonical_benchmark_name(segments[0])
 
             # if opt.packet:
             #     c.add_packet(d)

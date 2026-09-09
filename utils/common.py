@@ -10,6 +10,7 @@ import pandas as pd
 from local_configs import Env
 from paths import *
 from . import target_stats as t
+from .spec_info import canonical_benchmark_name
 from topdown import topdown_stat_map as tsm
 
 env = Env()
@@ -547,12 +548,16 @@ def get_stats_file_name(d: str):
 def get_stats_from_parent_dir(d: str, selected_benchmarks: [], *args, **kwargs):
     ret = {}
     assert(os.path.isdir(d))
+    if selected_benchmarks is not None:
+        selected_benchmarks = {
+            canonical_benchmark_name(bmk) for bmk in selected_benchmarks
+        }
     for sub_d in os.listdir(d):
         if os.path.isdir(pjoin(d, sub_d)):
             if '_' in sub_d:
-                bmk = sub_d.split('_')[0]
+                bmk = canonical_benchmark_name(sub_d.split('_')[0])
             else:
-                bmk = sub_d
+                bmk = canonical_benchmark_name(sub_d)
             if selected_benchmarks is not None and bmk not in selected_benchmarks:
                 continue
 

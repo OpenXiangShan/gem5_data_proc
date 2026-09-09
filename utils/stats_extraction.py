@@ -7,6 +7,8 @@ import utils.target_stats as t
 import json
 import re
 
+from .spec_info import canonical_benchmark_name
+
 def get_ipc(stat_path: str):
     targets = t.ipc_target
     stats = c.get_stats(stat_path, targets, insts=100*10**6, re_targets=True)
@@ -138,7 +140,7 @@ def glob_weighted_stats(path: str, get_func, filtered=True,
         workload = '_'.join(point.split('_')[:-1])
         print('Extracting', point_path, point, workload)
         point = int(point.split('_')[-1])
-        bmk = workload.split('_')[0]
+        bmk = canonical_benchmark_name(workload.split('_')[0])
         if dir_layout == 'flatten':
             point_stat_file = osp.join(point_dir, stat_file)
             print(point_dir)
@@ -194,7 +196,7 @@ def glob_weighted_cpts(path: str):
             workload = m.group(1)
             point = m.group(2)
             weight = float(m.group(3))
-            bmk = workload.split('_')[0]
+            bmk = canonical_benchmark_name(workload.split('_')[0])
             if bmk not in stat_tree:
                 stat_tree[bmk] = {}
             if workload not in stat_tree[bmk]:
