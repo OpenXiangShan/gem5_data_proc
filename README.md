@@ -98,6 +98,7 @@ Common extra groups:
 python3 run.py /path/to/results --out-dir results -g basic,branch,fetch
 python3 run.py /path/to/results --out-dir results -g basic,intel_topdown
 python3 run.py /path/to/results --out-dir results -g basic,l1_demand_read,l1_prefetch,l2_demand,l2_prefetch
+python3 run.py /path/to/results --out-dir results -g basic,mem_load_replay,mem_violation,mem_forward,mem_dcache
 ```
 
 Prefetch notes:
