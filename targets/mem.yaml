@@ -9,9 +9,8 @@ defaults:
 # derived names are what the compare UI should use.
 
 groups:
-  mem_load_replay:
+  mem_lsq:
     base_gem5: "{gem5_cpu_prefix}.lsq0"
-    xs_fmt: "{perf} .*\\.loadQueueReplay: {stat},\\s+(\\d+)"
     gem5:
       load_replay_cache_miss: "loadReplayEventsFromIssueQueue::CacheMissReplay"
       load_replay_tlb_miss: "loadReplayEventsFromIssueQueue::TLBMissReplay"
@@ -22,40 +21,120 @@ groups:
       load_replay_stlf: "loadReplayEventsFromIssueQueue::STLFReplay"
       load_replay_cache_blocked: "loadReplayEventsFromIssueQueue::CacheBlockedReplay"
       load_replay_mdp: "loadReplayEventsFromIssueQueue::MdpAddrReplay"
+      rar_full_cycles: RARQueueFullCycles
+      raw_full_cycles: RAWQueueFullCycles
+      rar_avg_entry: RARQueueAvgEntryNum
+      raw_avg_entry: RAWQueueAvgEntryNum
     xs:
-      load_replay_cache_miss: replay_dcache_miss
-      load_replay_tlb_miss: replay_tlb_miss
-      load_replay_bank_conflict: replay_bank_conflict
-      load_replay_rar: replay_rar_nack
-      load_replay_raw: replay_raw_nack
-      load_replay_nuke: replay_nuke
-      load_replay_stlf: replay_forward_fail
-      load_replay_cache_blocked: replay_dcache_replay
-      load_replay_mdp: replay_mem_amb
+      load_replay_cache_miss: "{perf} .*\\.loadQueueReplay: replay_dcache_miss,\\s+(\\d+)"
+      load_replay_tlb_miss: "{perf} .*\\.loadQueueReplay: replay_tlb_miss,\\s+(\\d+)"
+      load_replay_bank_conflict: "{perf} .*\\.loadQueueReplay: replay_bank_conflict,\\s+(\\d+)"
+      load_replay_rar: "{perf} .*\\.loadQueueReplay: replay_rar_nack,\\s+(\\d+)"
+      load_replay_raw: "{perf} .*\\.loadQueueReplay: replay_raw_nack,\\s+(\\d+)"
+      load_replay_nuke: "{perf} .*\\.loadQueueReplay: replay_nuke,\\s+(\\d+)"
+      load_replay_stlf: "{perf} .*\\.loadQueueReplay: replay_forward_fail,\\s+(\\d+)"
+      load_replay_cache_blocked: "{perf} .*\\.loadQueueReplay: replay_dcache_replay,\\s+(\\d+)"
+      load_replay_mdp: "{perf} .*\\.loadQueueReplay: replay_mem_amb,\\s+(\\d+)"
+      rar_full_cycles: "{perf} .*\\.loadQueueRAR: full,\\s+(\\d+)"
+      raw_full_cycles: "{perf} .*\\.loadQueueRAW: full,\\s+(\\d+)"
+      rar_occupancy_sum: "{perf} .*\\.loadQueueRAR: utilization,\\s+(\\d+)"
+      raw_occupancy_sum: "{perf} .*\\.loadQueueRAW: utilization,\\s+(\\d+)"
+    derived_xs:
+      rar_avg_entry: "rar_occupancy_sum / cycles"
+      raw_avg_entry: "raw_occupancy_sum / cycles"
 
   mem_violation:
     base_gem5: "{gem5_cpu_prefix}.lsq0"
     gem5:
+      stld_violation: stLdViolation
+      ldld_violation: ldLdViolation
       mem_order_violation: memOrderViolation
     xs:
-      stld_rollback: "{perf} .*\\.loadQueueRAW: stld_rollback,\\s+(\\d+)"
+      stld_violation: "{perf} .*\\.loadQueueRAW: stld_rollback,\\s+(\\d+)"
       ldld_violation: "{perf} .*\\.loadQueueRAR: ld_ld_violation,\\s+(\\d+)"
     derived_xs:
-      mem_order_violation: "stld_rollback + ldld_violation"
+      mem_order_violation: "stld_violation + ldld_violation"
 
-  mem_forward:
+  mem_lsq_pipe:
     base_gem5: "{gem5_cpu_prefix}.lsq0"
     gem5:
+      load_pipe_accepted: "loadPipeAccepted::total"
+      load_pipe_replay: "loadPipeReplayAccepted::total"
+      load_pipe_fast_replay: "loadPipeFastReplayAccepted::total"
+      store_pipe_accepted: "storePipeAccepted::total"
       forw_loads: forwLoads
       sbuffer_full_forward: sbufferFullForward
     xs:
+      xs_load_pipe_accepted_0: "{perf} .*\\.LoadUnit_0\\.s1: fire,\\s+(\\d+)"
+      xs_load_pipe_accepted_1: "{perf} .*\\.LoadUnit_1\\.s1: fire,\\s+(\\d+)"
+      xs_load_pipe_accepted_2: "{perf} .*\\.LoadUnit_2\\.s1: fire,\\s+(\\d+)"
+      xs_load_pipe_replay_0: "{perf} .*\\.LoadUnit_0\\.s0: replay_fire,\\s+(\\d+)"
+      xs_load_pipe_replay_1: "{perf} .*\\.LoadUnit_1\\.s0: replay_fire,\\s+(\\d+)"
+      xs_load_pipe_replay_2: "{perf} .*\\.LoadUnit_2\\.s0: replay_fire,\\s+(\\d+)"
+      xs_load_pipe_fast_replay_0: "{perf} .*\\.LoadUnit_0\\.s0: fast_replay_fire,\\s+(\\d+)"
+      xs_load_pipe_fast_replay_1: "{perf} .*\\.LoadUnit_1\\.s0: fast_replay_fire,\\s+(\\d+)"
+      xs_load_pipe_fast_replay_2: "{perf} .*\\.LoadUnit_2\\.s0: fast_replay_fire,\\s+(\\d+)"
+      xs_store_pipe_accepted_0: "{perf} .*\\.StoreUnit_0\\.s0: s0_isFirstIssue,\\s+(\\d+)"
+      xs_store_pipe_accepted_1: "{perf} .*\\.StoreUnit_1\\.s0: s0_isFirstIssue,\\s+(\\d+)"
       xs_full_forward_lu0: "{perf} .*\\.LoadUnit_0\\.s2: full_forward,\\s+(\\d+)"
       xs_full_forward_lu1: "{perf} .*\\.LoadUnit_1\\.s2: full_forward,\\s+(\\d+)"
       xs_full_forward_lu2: "{perf} .*\\.LoadUnit_2\\.s2: full_forward,\\s+(\\d+)"
     derived_gem5:
       load_full_forward: "forw_loads + sbuffer_full_forward"
     derived_xs:
+      load_pipe_accepted: "xs_load_pipe_accepted_0 + xs_load_pipe_accepted_1 + xs_load_pipe_accepted_2"
+      load_pipe_replay: "xs_load_pipe_replay_0 + xs_load_pipe_replay_1 + xs_load_pipe_replay_2"
+      load_pipe_fast_replay: "xs_load_pipe_fast_replay_0 + xs_load_pipe_fast_replay_1 + xs_load_pipe_fast_replay_2"
+      store_pipe_accepted: "xs_store_pipe_accepted_0 + xs_store_pipe_accepted_1"
       load_full_forward: "xs_full_forward_lu0 + xs_full_forward_lu1 + xs_full_forward_lu2"
+
+  mem_sbuffer:
+    base_gem5: "{gem5_cpu_prefix}.lsq0"
+    gem5:
+      sbuffer_merge: sbufferMerge
+      sbuffer_newline: sbufferNewline
+      sbuffer_dcache_fire: system.cpu.lsq.sbufferDcacheReqFire
+      sbuffer_dcache_blocked: system.cpu.lsq.sbufferDcacheReqBlocked
+    xs:
+      sbuffer_merge: "{perf} .*\\.sbuffer: sbuffer_merge,\\s+(\\d+)"
+      sbuffer_newline: "{perf} .*\\.sbuffer: sbuffer_newline,\\s+(\\d+)"
+      sbuffer_dcache_fire: "{perf} .*\\.sbuffer: dcache_req_fire,\\s+(\\d+)"
+      sbuffer_dcache_valid: "{perf} .*\\.sbuffer: dcache_req_valid,\\s+(\\d+)"
+    derived_xs:
+      sbuffer_dcache_blocked: "sbuffer_dcache_valid - sbuffer_dcache_fire"
+
+  mem_tlb:
+    base_gem5: "{gem5_cpu_prefix}.mmu.dtb"
+    gem5:
+      dtb_load_hits: readHits
+      dtb_load_misses: readMisses
+      dtb_store_hits: writeHits
+      dtb_store_misses: writeMisses
+    xs:
+      xs_dtb_load_access_0: "{perf} .*\\.dtlb_ld_tlb_ld: access0,\\s+(\\d+)"
+      xs_dtb_load_access_1: "{perf} .*\\.dtlb_ld_tlb_ld: access1,\\s+(\\d+)"
+      xs_dtb_load_access_2: "{perf} .*\\.dtlb_ld_tlb_ld: access2,\\s+(\\d+)"
+      xs_dtb_load_miss_0: "{perf} .*\\.dtlb_ld_tlb_ld: miss0,\\s+(\\d+)"
+      xs_dtb_load_miss_1: "{perf} .*\\.dtlb_ld_tlb_ld: miss1,\\s+(\\d+)"
+      xs_dtb_load_miss_2: "{perf} .*\\.dtlb_ld_tlb_ld: miss2,\\s+(\\d+)"
+      xs_dtb_store_access_0: "{perf} .*\\.dtlb_st_tlb_st: access0,\\s+(\\d+)"
+      xs_dtb_store_access_1: "{perf} .*\\.dtlb_st_tlb_st: access1,\\s+(\\d+)"
+      xs_dtb_store_miss_0: "{perf} .*\\.dtlb_st_tlb_st: miss0,\\s+(\\d+)"
+      xs_dtb_store_miss_1: "{perf} .*\\.dtlb_st_tlb_st: miss1,\\s+(\\d+)"
+    derived_gem5:
+      dtb_load_accesses: "dtb_load_hits + dtb_load_misses"
+      dtb_store_accesses: "dtb_store_hits + dtb_store_misses"
+      dtb_load_hit_rate: "dtb_load_hits / dtb_load_accesses"
+      dtb_store_hit_rate: "dtb_store_hits / dtb_store_accesses"
+    derived_xs:
+      dtb_load_accesses: "xs_dtb_load_access_0 + xs_dtb_load_access_1 + xs_dtb_load_access_2"
+      dtb_load_misses: "xs_dtb_load_miss_0 + xs_dtb_load_miss_1 + xs_dtb_load_miss_2"
+      dtb_load_hits: "dtb_load_accesses - dtb_load_misses"
+      dtb_store_accesses: "xs_dtb_store_access_0 + xs_dtb_store_access_1"
+      dtb_store_misses: "xs_dtb_store_miss_0 + xs_dtb_store_miss_1"
+      dtb_store_hits: "dtb_store_accesses - dtb_store_misses"
+      dtb_load_hit_rate: "dtb_load_hits / dtb_load_accesses"
+      dtb_store_hit_rate: "dtb_store_hits / dtb_store_accesses"
 
   mem_dcache:
     base_gem5: "{gem5_cpu_prefix}.dcache"
