@@ -1,0 +1,203 @@
+domain: mem
+
+defaults:
+  gem5_cpu_prefix: system.cpu
+  perf: "\\[PERF \\]\\[time=\\s*\\d+\\]"
+
+# Comparable Memblock counters for GEM5 vs RTL.
+# Helper columns (xs_* / gem5-only raw ticks) are backend-specific; common
+# derived names are what the compare UI should use.
+
+groups:
+  mem_lsq:
+    base_gem5: "{gem5_cpu_prefix}.lsq0"
+    gem5:
+      load_replay_cache_miss: "loadReplayEventsFromIssueQueue::CacheMissReplay"
+      load_replay_tlb_miss: "loadReplayEventsFromIssueQueue::TLBMissReplay"
+      load_replay_bank_conflict: "loadReplayEventsFromIssueQueue::BankConflictReplay"
+      load_replay_rar: "loadReplayEventsFromIssueQueue::RARReplay"
+      load_replay_raw: "loadReplayEventsFromIssueQueue::RAWReplay"
+      load_replay_nuke: "loadReplayEventsFromIssueQueue::NukeReplay"
+      load_replay_stlf: "loadReplayEventsFromIssueQueue::STLFReplay"
+      load_replay_cache_blocked: "loadReplayEventsFromIssueQueue::CacheBlockedReplay"
+      load_replay_mdp: "loadReplayEventsFromIssueQueue::MdpAddrReplay"
+      rar_full_cycles: RARQueueFullCycles
+      raw_full_cycles: RAWQueueFullCycles
+      rar_avg_entry: RARQueueAvgEntryNum
+      raw_avg_entry: RAWQueueAvgEntryNum
+    xs:
+      load_replay_cache_miss: "{perf} .*\\.loadQueueReplay: replay_dcache_miss,\\s+(\\d+)"
+      load_replay_tlb_miss: "{perf} .*\\.loadQueueReplay: replay_tlb_miss,\\s+(\\d+)"
+      load_replay_bank_conflict: "{perf} .*\\.loadQueueReplay: replay_bank_conflict,\\s+(\\d+)"
+      load_replay_rar: "{perf} .*\\.loadQueueReplay: replay_rar_nack,\\s+(\\d+)"
+      load_replay_raw: "{perf} .*\\.loadQueueReplay: replay_raw_nack,\\s+(\\d+)"
+      load_replay_nuke: "{perf} .*\\.loadQueueReplay: replay_nuke,\\s+(\\d+)"
+      load_replay_stlf: "{perf} .*\\.loadQueueReplay: replay_forward_fail,\\s+(\\d+)"
+      load_replay_cache_blocked: "{perf} .*\\.loadQueueReplay: replay_dcache_replay,\\s+(\\d+)"
+      load_replay_mdp: "{perf} .*\\.loadQueueReplay: replay_mem_amb,\\s+(\\d+)"
+      rar_full_cycles: "{perf} .*\\.loadQueueRAR: full,\\s+(\\d+)"
+      raw_full_cycles: "{perf} .*\\.loadQueueRAW: full,\\s+(\\d+)"
+      rar_occupancy_sum: "{perf} .*\\.loadQueueRAR: utilization,\\s+(\\d+)"
+      raw_occupancy_sum: "{perf} .*\\.loadQueueRAW: utilization,\\s+(\\d+)"
+    derived_xs:
+      rar_avg_entry: "rar_occupancy_sum / cycles"
+      raw_avg_entry: "raw_occupancy_sum / cycles"
+
+  mem_violation:
+    base_gem5: "{gem5_cpu_prefix}.lsq0"
+    gem5:
+      stld_violation: stLdViolation
+      ldld_violation: ldLdViolation
+      mem_order_violation: memOrderViolation
+    xs:
+      stld_violation: "{perf} .*\\.loadQueueRAW: stld_rollback,\\s+(\\d+)"
+      ldld_violation: "{perf} .*\\.loadQueueRAR: ld_ld_violation,\\s+(\\d+)"
+    derived_xs:
+      mem_order_violation: "stld_violation + ldld_violation"
+
+  mem_lsq_pipe:
+    base_gem5: "{gem5_cpu_prefix}.lsq0"
+    gem5:
+      load_pipe_accepted: "loadPipeAccepted::total"
+      load_pipe_replay: "loadPipeReplayAccepted::total"
+      load_pipe_fast_replay: "loadPipeFastReplayAccepted::total"
+      store_pipe_accepted: "storePipeAccepted::total"
+      forw_loads: forwLoads
+      sbuffer_full_forward: sbufferFullForward
+    xs:
+      xs_load_pipe_accepted_0: "{perf} .*\\.LoadUnit_0\\.s1: fire,\\s+(\\d+)"
+      xs_load_pipe_accepted_1: "{perf} .*\\.LoadUnit_1\\.s1: fire,\\s+(\\d+)"
+      xs_load_pipe_accepted_2: "{perf} .*\\.LoadUnit_2\\.s1: fire,\\s+(\\d+)"
+      xs_load_pipe_replay_0: "{perf} .*\\.LoadUnit_0\\.s0: replay_fire,\\s+(\\d+)"
+      xs_load_pipe_replay_1: "{perf} .*\\.LoadUnit_1\\.s0: replay_fire,\\s+(\\d+)"
+      xs_load_pipe_replay_2: "{perf} .*\\.LoadUnit_2\\.s0: replay_fire,\\s+(\\d+)"
+      xs_load_pipe_fast_replay_0: "{perf} .*\\.LoadUnit_0\\.s0: fast_replay_fire,\\s+(\\d+)"
+      xs_load_pipe_fast_replay_1: "{perf} .*\\.LoadUnit_1\\.s0: fast_replay_fire,\\s+(\\d+)"
+      xs_load_pipe_fast_replay_2: "{perf} .*\\.LoadUnit_2\\.s0: fast_replay_fire,\\s+(\\d+)"
+      xs_store_pipe_accepted_0: "{perf} .*\\.StoreUnit_0\\.s0: s0_isFirstIssue,\\s+(\\d+)"
+      xs_store_pipe_accepted_1: "{perf} .*\\.StoreUnit_1\\.s0: s0_isFirstIssue,\\s+(\\d+)"
+      xs_full_forward_lu0: "{perf} .*\\.LoadUnit_0\\.s2: full_forward,\\s+(\\d+)"
+      xs_full_forward_lu1: "{perf} .*\\.LoadUnit_1\\.s2: full_forward,\\s+(\\d+)"
+      xs_full_forward_lu2: "{perf} .*\\.LoadUnit_2\\.s2: full_forward,\\s+(\\d+)"
+    derived_gem5:
+      load_full_forward: "forw_loads + sbuffer_full_forward"
+    derived_xs:
+      load_pipe_accepted: "xs_load_pipe_accepted_0 + xs_load_pipe_accepted_1 + xs_load_pipe_accepted_2"
+      load_pipe_replay: "xs_load_pipe_replay_0 + xs_load_pipe_replay_1 + xs_load_pipe_replay_2"
+      load_pipe_fast_replay: "xs_load_pipe_fast_replay_0 + xs_load_pipe_fast_replay_1 + xs_load_pipe_fast_replay_2"
+      store_pipe_accepted: "xs_store_pipe_accepted_0 + xs_store_pipe_accepted_1"
+      load_full_forward: "xs_full_forward_lu0 + xs_full_forward_lu1 + xs_full_forward_lu2"
+
+  mem_sbuffer:
+    base_gem5: "{gem5_cpu_prefix}.lsq0"
+    gem5:
+      sbuffer_merge: sbufferMerge
+      sbuffer_newline: sbufferNewline
+      sbuffer_dcache_fire: system.cpu.lsq.sbufferDcacheReqFire
+      sbuffer_dcache_blocked: system.cpu.lsq.sbufferDcacheReqBlocked
+    xs:
+      sbuffer_merge: "{perf} .*\\.sbuffer: sbuffer_merge,\\s+(\\d+)"
+      sbuffer_newline: "{perf} .*\\.sbuffer: sbuffer_newline,\\s+(\\d+)"
+      sbuffer_dcache_fire: "{perf} .*\\.sbuffer: dcache_req_fire,\\s+(\\d+)"
+      sbuffer_dcache_valid: "{perf} .*\\.sbuffer: dcache_req_valid,\\s+(\\d+)"
+    derived_xs:
+      sbuffer_dcache_blocked: "sbuffer_dcache_valid - sbuffer_dcache_fire"
+
+  mem_tlb:
+    base_gem5: "{gem5_cpu_prefix}.mmu.dtb"
+    gem5:
+      dtb_load_hits: readHits
+      dtb_load_misses: readMisses
+      dtb_store_hits: writeHits
+      dtb_store_misses: writeMisses
+    xs:
+      xs_dtb_load_access_0: "{perf} .*\\.dtlb_ld_tlb_ld: access0,\\s+(\\d+)"
+      xs_dtb_load_access_1: "{perf} .*\\.dtlb_ld_tlb_ld: access1,\\s+(\\d+)"
+      xs_dtb_load_access_2: "{perf} .*\\.dtlb_ld_tlb_ld: access2,\\s+(\\d+)"
+      xs_dtb_load_miss_0: "{perf} .*\\.dtlb_ld_tlb_ld: miss0,\\s+(\\d+)"
+      xs_dtb_load_miss_1: "{perf} .*\\.dtlb_ld_tlb_ld: miss1,\\s+(\\d+)"
+      xs_dtb_load_miss_2: "{perf} .*\\.dtlb_ld_tlb_ld: miss2,\\s+(\\d+)"
+      xs_dtb_store_access_0: "{perf} .*\\.dtlb_st_tlb_st: access0,\\s+(\\d+)"
+      xs_dtb_store_access_1: "{perf} .*\\.dtlb_st_tlb_st: access1,\\s+(\\d+)"
+      xs_dtb_store_miss_0: "{perf} .*\\.dtlb_st_tlb_st: miss0,\\s+(\\d+)"
+      xs_dtb_store_miss_1: "{perf} .*\\.dtlb_st_tlb_st: miss1,\\s+(\\d+)"
+    derived_gem5:
+      dtb_load_accesses: "dtb_load_hits + dtb_load_misses"
+      dtb_store_accesses: "dtb_store_hits + dtb_store_misses"
+      dtb_load_hit_rate: "dtb_load_hits / dtb_load_accesses"
+      dtb_store_hit_rate: "dtb_store_hits / dtb_store_accesses"
+    derived_xs:
+      dtb_load_accesses: "xs_dtb_load_access_0 + xs_dtb_load_access_1 + xs_dtb_load_access_2"
+      dtb_load_misses: "xs_dtb_load_miss_0 + xs_dtb_load_miss_1 + xs_dtb_load_miss_2"
+      dtb_load_hits: "dtb_load_accesses - dtb_load_misses"
+      dtb_store_accesses: "xs_dtb_store_access_0 + xs_dtb_store_access_1"
+      dtb_store_misses: "xs_dtb_store_miss_0 + xs_dtb_store_miss_1"
+      dtb_store_hits: "dtb_store_accesses - dtb_store_misses"
+      dtb_load_hit_rate: "dtb_load_hits / dtb_load_accesses"
+      dtb_store_hit_rate: "dtb_store_hits / dtb_store_accesses"
+
+  mem_dcache:
+    base_gem5: "{gem5_cpu_prefix}.dcache"
+    gem5:
+      dcache_refill: DcacheRefillTimes
+      dcache_tag_accesses: tags.tagAccesses
+      dcache_data_accesses: tags.dataAccesses
+      dcache_load_misses: "ReadReq.misses::total"
+      dcache_load_miss_latency_ticks: "ReadReq.missLatency::total"
+      dcache_store_misses_wr: "WriteReq.misses::total"
+      dcache_store_miss_latency_ticks_wr: "WriteReq.missLatency::total"
+      dcache_store_misses_wl: "WriteLineReq.misses::total"
+      dcache_store_miss_latency_ticks_wl: "WriteLineReq.missLatency::total"
+      cpu_clock_ticks: system.cpu_clk_domain.clock
+    xs:
+      xs_refill_mainpipe_e0: "{perf} .*\\.missQueue\\.entries_0: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e0: "{perf} .*\\.missQueue\\.entries_0: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e1: "{perf} .*\\.missQueue\\.entries_1: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e1: "{perf} .*\\.missQueue\\.entries_1: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e2: "{perf} .*\\.missQueue\\.entries_2: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e2: "{perf} .*\\.missQueue\\.entries_2: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e3: "{perf} .*\\.missQueue\\.entries_3: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e3: "{perf} .*\\.missQueue\\.entries_3: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e4: "{perf} .*\\.missQueue\\.entries_4: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e4: "{perf} .*\\.missQueue\\.entries_4: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e5: "{perf} .*\\.missQueue\\.entries_5: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e5: "{perf} .*\\.missQueue\\.entries_5: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e6: "{perf} .*\\.missQueue\\.entries_6: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e6: "{perf} .*\\.missQueue\\.entries_6: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e7: "{perf} .*\\.missQueue\\.entries_7: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e7: "{perf} .*\\.missQueue\\.entries_7: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e8: "{perf} .*\\.missQueue\\.entries_8: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e8: "{perf} .*\\.missQueue\\.entries_8: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e9: "{perf} .*\\.missQueue\\.entries_9: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e9: "{perf} .*\\.missQueue\\.entries_9: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e10: "{perf} .*\\.missQueue\\.entries_10: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e10: "{perf} .*\\.missQueue\\.entries_10: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e11: "{perf} .*\\.missQueue\\.entries_11: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e11: "{perf} .*\\.missQueue\\.entries_11: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e12: "{perf} .*\\.missQueue\\.entries_12: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e12: "{perf} .*\\.missQueue\\.entries_12: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e13: "{perf} .*\\.missQueue\\.entries_13: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e13: "{perf} .*\\.missQueue\\.entries_13: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e14: "{perf} .*\\.missQueue\\.entries_14: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e14: "{perf} .*\\.missQueue\\.entries_14: miss_refill_replay,\\s+(\\d+)"
+      xs_refill_mainpipe_e15: "{perf} .*\\.missQueue\\.entries_15: miss_refill_mainpipe_req,\\s+(\\d+)"
+      xs_refill_replay_e15: "{perf} .*\\.missQueue\\.entries_15: miss_refill_replay,\\s+(\\d+)"
+      dcache_tag_accesses: "{perf} .*\\.tagArray: tag_read_counter,\\s+(\\d+)"
+      dcache_data_read_0: "{perf} .*\\.bankedDataArray: data_array_read_0,\\s+(\\d+)"
+      dcache_data_read_1: "{perf} .*\\.bankedDataArray: data_array_read_1,\\s+(\\d+)"
+      dcache_data_read_2: "{perf} .*\\.bankedDataArray: data_array_read_2,\\s+(\\d+)"
+      dcache_data_read_line: "{perf} .*\\.bankedDataArray: data_array_read_line,\\s+(\\d+)"
+      dcache_load_miss_latency_sum: "{perf} .*\\.dcache\\.dcache\\.missQueue: miss_load_refill_latency,\\s+(\\d+)"
+      dcache_load_miss_allocate: "{perf} .*\\.dcache\\.dcache\\.missQueue: miss_req_load_allocate,\\s+(\\d+)"
+      dcache_store_miss_latency_sum: "{perf} .*\\.dcache\\.dcache\\.missQueue: miss_store_refill_latency,\\s+(\\d+)"
+      dcache_store_miss_allocate: "{perf} .*\\.dcache\\.dcache\\.missQueue: miss_req_store_allocate,\\s+(\\d+)"
+    derived_gem5:
+      dcache_load_miss_latency_cycles: "dcache_load_miss_latency_ticks / dcache_load_misses / cpu_clock_ticks"
+      dcache_store_miss_latency_cycles: "(dcache_store_miss_latency_ticks_wr + dcache_store_miss_latency_ticks_wl) / (dcache_store_misses_wr + dcache_store_misses_wl) / cpu_clock_ticks"
+    derived_xs:
+      xs_refill_mainpipe: "xs_refill_mainpipe_e0 + xs_refill_mainpipe_e1 + xs_refill_mainpipe_e2 + xs_refill_mainpipe_e3 + xs_refill_mainpipe_e4 + xs_refill_mainpipe_e5 + xs_refill_mainpipe_e6 + xs_refill_mainpipe_e7 + xs_refill_mainpipe_e8 + xs_refill_mainpipe_e9 + xs_refill_mainpipe_e10 + xs_refill_mainpipe_e11 + xs_refill_mainpipe_e12 + xs_refill_mainpipe_e13 + xs_refill_mainpipe_e14 + xs_refill_mainpipe_e15"
+      xs_refill_replay: "xs_refill_replay_e0 + xs_refill_replay_e1 + xs_refill_replay_e2 + xs_refill_replay_e3 + xs_refill_replay_e4 + xs_refill_replay_e5 + xs_refill_replay_e6 + xs_refill_replay_e7 + xs_refill_replay_e8 + xs_refill_replay_e9 + xs_refill_replay_e10 + xs_refill_replay_e11 + xs_refill_replay_e12 + xs_refill_replay_e13 + xs_refill_replay_e14 + xs_refill_replay_e15"
+      dcache_refill: "xs_refill_mainpipe - xs_refill_replay"
+      dcache_load_miss_latency_cycles: "dcache_load_miss_latency_sum / dcache_load_miss_allocate"
+      dcache_store_miss_latency_cycles: "dcache_store_miss_latency_sum / dcache_store_miss_allocate"
+      dcache_data_accesses: "dcache_data_read_0 + dcache_data_read_1 + dcache_data_read_2 + dcache_data_read_line"
