@@ -39,6 +39,26 @@ def _find_first_file(root: str, filename: str) -> Optional[str]:
     return None
 
 
+def _probe_format(root: str) -> Optional[str]:
+    try:
+        names = os.listdir(root)
+    except OSError:
+        return None
+    for name in names:
+        child = osp.join(root, name)
+        if osp.isfile(osp.join(child, "simulator_err.txt")):
+            return "xs"
+        if osp.isfile(osp.join(child, "stats.txt")) or osp.isfile(
+            osp.join(child, "m5out", "stats.txt")
+        ):
+            return "gem5"
+        if name == "spec_all" and osp.isdir(child):
+            probed = _probe_format(child)
+            if probed is not None:
+                return probed
+    return None
+
+
 def _find_benchmark_type(stat_dir: str) -> Optional[str]:
     stat_path = Path(stat_dir)
     metadata_paths = [stat_path / "metadata.txt"]
@@ -107,6 +127,9 @@ def _extract_spec_all_stats(archive_path: str, out_dir: str) -> str:
 def _detect_format(stat_dir: str, fmt: str) -> str:
     if fmt != "auto":
         return fmt
+    probed = _probe_format(stat_dir)
+    if probed is not None:
+        return probed
     if _find_first_file(stat_dir, "simulator_err.txt") is not None:
         return "xs"
     return "gem5"
