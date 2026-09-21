@@ -42,6 +42,7 @@ python3 run.py /path/to/results/tag --out-dir results --benchmark-type gcc12  # 
 python3 run.py /path/to/results/tag --out-dir results --benchmark-type gcc16
 python3 run.py /path/to/results/tag --out-dir results -j /path/to/cluster.json
 python3 run.py /path/to/results/tag --out-dir results -g basic,branch,tage  # override groups
+python3 run.py /path/to/results/tag --out-dir results --jobs 32  # extraction workers, default auto
 ```
 
 Notes:

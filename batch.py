@@ -1,18 +1,35 @@
 #!/usr/bin/env python3
 
 from os.path import join as pjoin
+import os
 import os.path as osp
 import argparse
 import pandas as pd
 import json
+from multiprocessing import get_context
 
 from utils import common as c
 from utils.target_stats import *
 from utils.targets_yaml import list_groups as yaml_list_groups
 from utils.targets_yaml import load_groups as yaml_load_groups
 from utils.derived_metrics import apply_derived_metrics
-from multiprocessing import Process,Manager
 import utils as u
+
+_EXTRACT_WORKER = None
+_MAX_AUTO_JOBS = 64
+
+
+def _run_extract_worker(item):
+    return _EXTRACT_WORKER(item)
+
+
+def _choose_jobs(requested, n_tasks):
+    if n_tasks <= 1:
+        return 1
+    if requested is not None and requested > 0:
+        return max(1, min(int(requested), n_tasks))
+    cpu = os.cpu_count() or 1
+    return max(1, min(n_tasks, cpu, _MAX_AUTO_JOBS))
 
 show_lins = 62
 pd.set_option('display.precision', 3)
@@ -157,6 +174,9 @@ def main():
     parser.add_argument('--list-groups', action='store_true',
                         help='list available YAML groups and exit'
                        )
+    parser.add_argument('--jobs', type=int, default=0,
+                        help='parallel extraction workers (0: auto, capped at 64; 1: sequential)'
+                       )
 
     opt = parser.parse_args()
 
@@ -220,109 +240,98 @@ def main():
         print(f"Please check: 1) directory exists  2) file name is correct")
         sys.exit(1)
 
-    use_mp = True
-    try:
-        manager = Manager()
-        all_bmk_dict = manager.dict()
-        diagnostics = manager.dict()
-    except Exception as e:
-        print(f"warning: multiprocessing Manager unavailable, falling back to sequential mode: {e}")
-        use_mp = False
-        all_bmk_dict = {}
-        diagnostics = {}
-
     require_flag = False
     if xs_stat_fmt:
         prefix = 'xs_'
     else:
         prefix = ''
 
-    possible_paths = []
+    possible_paths = set()
     if opt.json_filter is not None:
-        json_filter = json.load(open(opt.json_filter))
+        with open(opt.json_filter) as json_file:
+            json_filter = json.load(json_file)
         for workload in json_filter:
             wl_dict = json_filter[workload]
             for point, weight in wl_dict['points'].items():
-                possible_paths.append('{}_{}'.format(workload, point))
-                possible_paths.append('{}_{}_{}'.format(workload, point, weight))
-        # print(possible_paths)
-    # for workload, path in paths:
-    def extract_and_post_process(gloabl_dict, workload, path):
+                possible_paths.add('{}_{}'.format(workload, point))
+                possible_paths.add('{}_{}_{}'.format(workload, point, weight))
+
+    def keep_path(workload, path):
         if opt.filter_bmk and not workload.startswith(opt.filter_bmk):
-            return
+            return False
         if opt.json_filter is not None:
             # Preserve the weight suffix when selecting mixed RTL profiles.
             directory = osp.relpath(path, opt.stat_dir).split(osp.sep)[0]
             identifier = directory if directory.startswith(workload + '_') else workload
             if identifier not in possible_paths:
-                return
+                return False
+        return True
+
+    paths = [(workload, path) for workload, path in paths if keep_path(workload, path)]
+
+    if opt.ipc_only:
+        targets = yaml_xs_targets if xs_stat_fmt else yaml_gem5_targets
+    elif xs_stat_fmt:
+        targets = dict(yaml_xs_targets)
+        if opt.branch:
+            targets = {**xs_branch_targets, **targets}
+        if opt.cache:
+            if opt.xiangshan:
+                if opt.exclude_l3:
+                    targets = {**xs_cache_targets_no_l3, **targets}
+                else:
+                    targets = {**xs_cache_targets, **targets}
+            elif opt.old_xs:
+                targets = {**xs_cache_targets_22_04_nanhu, **targets}
+            else:
+                raise Exception('Unknown xs stat format')
+
+        if opt.topdown:
+            targets = {**xs_topdown_targets, **targets}
+
+        if opt.topdown_intel:
+            targets = {**xs_topdown_intel_targets, **targets}
+        if opt.temp:
+            targets = {**xs_temp_targets, **targets}
+
+        add_eval_targets(opt, targets)
+    else:
+        targets = dict(yaml_gem5_targets)
+        if opt.branch:
+            targets = {**branch_targets, **targets}
+        if opt.cache:
+            targets = {**cache_targets, **targets}
+        if opt.warmup:
+            targets = {**warmup_targets, **targets}
+        if opt.topdown:
+            targets = {**topdown_targets, **targets}
+        if opt.topdown_intel:
+            targets = {**topdown_intel_targets, **targets}
+        if opt.temp:
+            targets = {**temp_targets, **targets}
+
+        add_eval_targets(opt, targets)
+
+    def extract_one(item):
+        workload, path = item
+        diagnostic = None
         if xs_stat_fmt:
             flag_file = osp.join(osp.dirname(path), 'completed')
         else:
             flag_file = osp.join(osp.dirname(osp.dirname(path)), 'completed')
         if require_flag and not osp.isfile(flag_file):
-            # print('Skip unfinished job:', workload, path, flag_file)
-            return
-        
-        # print('Process finished job:', workload)
-        # print(workload, path)
-        # print(workload)
-        if opt.ipc_only:
-            if xs_stat_fmt:
-                d = c.xs_get_stats(path, yaml_xs_targets, re_targets=True,
-                                   required_keys={'committedInsts', 'cycles'},
-                                   diagnostics=diagnostics)
-            else:
-                d = c.gem5_get_stats(path, yaml_gem5_targets, re_targets=True)
+            return workload, None, diagnostic
+
+        local_diag = {}
+        if xs_stat_fmt:
+            d = c.xs_get_stats(path, targets, re_targets=True,
+                               required_keys={'committedInsts', 'cycles'},
+                               diagnostics=local_diag)
         else:
-            if xs_stat_fmt:
-                targets = dict(yaml_xs_targets)
-                if opt.branch:
-                    targets = {**xs_branch_targets, **targets}
-                if opt.cache:
-                    if opt.xiangshan:
-                        if opt.exclude_l3:
-                            targets = {**xs_cache_targets_no_l3, **targets}
-                        else:
-                            targets = {**xs_cache_targets, **targets}
-                    elif opt.old_xs:
-                        targets = {**xs_cache_targets_22_04_nanhu, **targets}
-                    else:
-                        raise Exception('Unknown xs stat format')
+            d = c.gem5_get_stats(path, targets, re_targets=True)
+        if local_diag:
+            diagnostic = next(iter(local_diag.items()))
 
-                if opt.topdown:
-                    targets = {**xs_topdown_targets, **targets}
-                
-                if opt.topdown_intel:
-                    targets = {**xs_topdown_intel_targets, **targets}
-                if opt.temp:
-                    targets = {**xs_temp_targets, **targets}
-
-                add_eval_targets(opt, targets)
-
-                d = c.xs_get_stats(path, targets, re_targets=True,
-                                   required_keys={'committedInsts', 'cycles'},
-                                   diagnostics=diagnostics)
-            else:
-                targets = dict(yaml_gem5_targets)
-                if opt.branch:
-                    targets = {**branch_targets, **targets}
-                if opt.cache:
-                    targets = {**cache_targets, **targets}
-                if opt.warmup:
-                    targets = {**warmup_targets, **targets}
-                if opt.topdown:
-                    targets = {**topdown_targets, **targets}
-                if opt.topdown_intel:
-                    targets = {**topdown_intel_targets, **targets}
-                if opt.temp:
-                    targets = {**temp_targets, **targets}
-
-                add_eval_targets(opt, targets)
-
-                d = c.gem5_get_stats(path, targets, re_targets=True)
-
-            # TODO: test eval stats
         if d and len(d):
             if xs_stat_fmt:
                 if 'commitInstr' not in d and 'insts' in d:
@@ -363,18 +372,33 @@ def main():
 
             # if opt.packet:
             #     c.add_packet(d)
-        gloabl_dict[workload] = d
-        return
+        return workload, d, diagnostic
 
-    if use_mp:
-        jobs = [Process(target=extract_and_post_process, args=(all_bmk_dict, workload, path)) for workload, path in paths]
-        _ = [p.start() for p in jobs]
-        _ = [p.join() for p in jobs]
-        if any(p.exitcode != 0 for p in jobs):
-            raise SystemExit("Error: stats extraction worker failed; stopping before weighting")
+    jobs = _choose_jobs(opt.jobs, len(paths))
+    print(f'Extracting {len(paths)} file(s) using {jobs} worker(s)')
+
+    global _EXTRACT_WORKER
+    _EXTRACT_WORKER = extract_one
+
+    if jobs == 1:
+        results = [extract_one(item) for item in paths]
     else:
-        for workload, path in paths:
-            extract_and_post_process(all_bmk_dict, workload, path)
+        try:
+            ctx = get_context('fork')
+            chunksize = 1 if len(paths) < 32 else max(1, len(paths) // (jobs * 4))
+            with ctx.Pool(processes=jobs) as pool:
+                results = pool.map(_run_extract_worker, paths, chunksize=chunksize)
+        except Exception as e:
+            print(f'warning: multiprocessing pool unavailable, falling back to sequential mode: {e}')
+            results = [extract_one(item) for item in paths]
+
+    all_bmk_dict = {}
+    diagnostics = {}
+    for workload, d, diagnostic in results:
+        all_bmk_dict[workload] = d
+        if diagnostic is not None:
+            path, message = diagnostic
+            diagnostics[path] = message
 
     warnings_by_message = {}
     for path, message in sorted(diagnostics.items()):

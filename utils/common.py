@@ -245,6 +245,185 @@ def to_num(x: str) -> (int, float):
     else:
         return int(x)
 
+
+_OPT_NC_GROUP = re.compile(r'\(\?:([^()]*)\)\?')
+_ALT_NC_GROUP = re.compile(r'\(\?:([^()]+)\)')
+_GEM5_BEGIN_STATS = '---------- Begin Simulation Statistics ----------'
+_GEM5_VALUE_SUFFIX = r'\s+(\d+\.?\d*)\s+'
+_XS_TARGET_CACHE = {}
+_GEM5_TARGET_CACHE = {}
+_MSHR_PATTERNS = {
+    'l2': re.compile(
+        r"\[PERF \]\[time=\s+\d+\] TOP\.SimTop\.l_soc\.core_with_l2\.l2cache\.slices_(?P<bank>\d+)\.mshrCtl: "
+        r"mshr_latency_(?P<mshr_id>\d+)_(?P<lat_low>\d+)_(?P<lat_high>\d+),\s+(?P<count>\d+)"
+    ),
+    'l3': re.compile(
+        r"\[PERF \]\[time=\s+\d+\] TOP\.SimTop\.l_soc\.l3cacheOpt\.slices_(?P<bank>\d+)\.mshrAlloc: "
+        r"mshr_latency_(?P<mshr_id>\d+)_(?P<lat_low>\d+)_(?P<lat_high>\d+),\s+(?P<count>\d+)"
+    ),
+    'l1d': re.compile(
+        r"\[PERF \]\[time=\s+\d+\] TOP\.SimTop\.l_soc\.core_with_l2\.core\.memBlock\.dcache\.dcache\.missQueue\.entries_(?P<mshr_id>\d+): "
+        r"load_miss_penalty_to_use_(?P<lat_low>\d+)_(?P<lat_high>\d+),\s+(?P<count>\d+)"
+    ),
+}
+
+
+def _expand_simple_regex(pattern: str):
+    """Expand limited regex features into literal strings, or return None."""
+    items = [pattern]
+    while True:
+        new_items = []
+        progressed = False
+        for item in items:
+            m = _OPT_NC_GROUP.search(item)
+            if m is not None:
+                new_items.append(item[:m.start()] + item[m.end():])
+                new_items.append(item[:m.start()] + m.group(1) + item[m.end():])
+                progressed = True
+                continue
+            m = _ALT_NC_GROUP.search(item)
+            if m is not None:
+                for alt in m.group(1).split('|'):
+                    new_items.append(item[:m.start()] + alt + item[m.end():])
+                progressed = True
+                continue
+            new_items.append(item)
+        items = new_items
+        if not progressed:
+            break
+
+    literals = []
+    for item in items:
+        out = []
+        i = 0
+        n = len(item)
+        while i < n:
+            ch = item[i]
+            if ch == '\\':
+                if i + 1 >= n:
+                    return None
+                escaped = item[i + 1]
+                # Escaped punctuation represents a literal character. Escaped
+                # letters/digits may be character classes, anchors, encoded
+                # characters, or backreferences, so they are not index-safe.
+                if escaped.isalnum():
+                    return None
+                out.append(escaped)
+                i += 2
+                continue
+            if ch in '.^$*+?{}()[]|':
+                return None
+            out.append(ch)
+            i += 1
+        literals.append(''.join(out))
+    return literals
+
+
+def _xs_pattern_suffix_names(pattern: str):
+    idx = pattern.rfind(': ')
+    if idx < 0:
+        return None
+    name = pattern[idx + 2:].split(',', 1)[0]
+    return _expand_simple_regex(name)
+
+
+def _xs_line_counter_name(line: str):
+    idx = line.rfind(': ')
+    if idx < 0:
+        return None
+    return line[idx + 2:].split(',', 1)[0].strip()
+
+
+def _compile_xs_targets(targets):
+    key = tuple(
+        (k, p, None) if isinstance(p, str) else (k, p[0], p[1])
+        for k, p in targets.items()
+    )
+    cached = _XS_TARGET_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    patterns = {}
+    accumulate_counts = {}
+    suffix_index = {}
+    fallback_keys = []
+    for k, p in targets.items():
+        if isinstance(p, str):
+            raw = p
+        else:
+            raw = p[0]
+            accumulate_counts[k] = p[1]
+        patterns[k] = re.compile(raw)
+        names = _xs_pattern_suffix_names(raw)
+        if not names:
+            fallback_keys.append(k)
+            continue
+        for name in names:
+            suffix_index.setdefault(name, []).append(k)
+
+    compiled = (patterns, accumulate_counts, suffix_index, fallback_keys)
+    _XS_TARGET_CACHE[key] = compiled
+    return compiled
+
+
+def _gem5_keys_for_stat_name(stat_name, name_index):
+    keys = name_index.get(stat_name)
+    if keys:
+        return keys
+    # gem5_get_stats historically used re.search, so a target may match a
+    # longer stat name with an extra prefix such as "system.".
+    name = stat_name
+    while True:
+        dot = name.find('.')
+        if dot < 0:
+            return ()
+        name = name[dot + 1:]
+        keys = name_index.get(name)
+        if keys:
+            return keys
+
+
+def _compile_gem5_targets(targets):
+    key = tuple(targets.items())
+    cached = _GEM5_TARGET_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    patterns = {}
+    name_index = {}
+    fallback_keys = []
+    for meta, regex in targets.items():
+        patterns[meta] = re.compile(regex + _GEM5_VALUE_SUFFIX)
+        names = _expand_simple_regex(regex)
+        if not names:
+            fallback_keys.append(meta)
+            continue
+        for name in names:
+            name_index.setdefault(name, []).append(meta)
+
+    compiled = (patterns, name_index, fallback_keys)
+    _GEM5_TARGET_CACHE[key] = compiled
+    return compiled
+
+
+def get_last_complete_stats_dump(stat_file: str):
+    """Return the last gem5 stats dump and how many Begin markers were seen.
+
+    Scanning backwards avoids reading the warmup dump just to count blocks.
+    `begins` is capped at 2, which is enough to know warmup + main exist.
+    """
+    last_dump = []
+    begins = 0
+    for line in reverse_readline(expu(stat_file)):
+        if begins == 0:
+            last_dump.append(line)
+        if line.startswith(_GEM5_BEGIN_STATS):
+            begins += 1
+            if begins >= 2:
+                break
+    return last_dump, begins
+
+
 time_pattern = re.compile('\[PERF \]\[time=\s*(\d+)\].*')
 def xs_get_time(line):
     return int(time_pattern.match(line).group(1))
@@ -252,14 +431,8 @@ def xs_get_time(line):
 
 def xs_get_mshr_latency(line: str, lv: str):
     # TOP.SimTop.l_soc.core_with_l2.l2cache.
-    
-    if lv == 'l2':
-        pattern = re.compile(r"\[PERF \]\[time=\s+\d+\] TOP\.SimTop\.l_soc\.core_with_l2\.l2cache\.slices_(?P<bank>\d+)\.mshrCtl: mshr_latency_(?P<mshr_id>\d+)_(?P<lat_low>\d+)_(?P<lat_high>\d+),\s+(?P<count>\d+)")
-    elif lv == 'l3':
-        pattern = re.compile(r"\[PERF \]\[time=\s+\d+\] TOP\.SimTop\.l_soc\.l3cacheOpt\.slices_(?P<bank>\d+)\.mshrAlloc: mshr_latency_(?P<mshr_id>\d+)_(?P<lat_low>\d+)_(?P<lat_high>\d+),\s+(?P<count>\d+)")
-    elif lv == 'l1d':
-        pattern = re.compile(r"\[PERF \]\[time=\s+\d+\] TOP\.SimTop\.l_soc\.core_with_l2\.core\.memBlock\.dcache\.dcache\.missQueue\.entries_(?P<mshr_id>\d+): load_miss_penalty_to_use_(?P<lat_low>\d+)_(?P<lat_high>\d+),\s+(?P<count>\d+)")
-    else:
+    pattern = _MSHR_PATTERNS.get(lv)
+    if pattern is None:
         raise Exception("Unhandle cache levl")
 
     m = pattern.match(line)
@@ -297,14 +470,8 @@ def xs_get_stats(stat_file: str, targets: list,
     if lines is None:
         return None
 
-    patterns = {}
-    accumulate_table = {}  # key: pattern, value: (count, [matched values])
-    for k, p in targets.items():
-        if isinstance(p, str):
-            patterns[k] = re.compile(p)
-        else:
-            patterns[k] = re.compile(p[0])
-            accumulate_table[k] = (p[1], [])
+    patterns, accumulate_counts, suffix_index, fallback_keys = _compile_xs_targets(targets)
+    accumulate_table = {k: (count, []) for k, count in accumulate_counts.items()}
 
     stats = {}
     commitInstr_count = 0  # Track how many times commitInstr appears
@@ -315,12 +482,20 @@ def xs_get_stats(stat_file: str, targets: list,
     total_match = 0
     keep_last = True
     caches = ['l3']  # caches that need to be manually processed
+    mshr_tables = {'l2': mshr_latency_l2, 'l3': mshr_latency_l3, 'l1d': mshr_latency_l1d}
     for ln, line in enumerate(lines):
         matched_re_pattern = False
         matched_commit_line = False
-        for k in patterns:
+        counter_name = _xs_line_counter_name(line)
+        keys = suffix_index.get(counter_name, ())
+        if fallback_keys:
+            if keys:
+                keys = list(keys) + fallback_keys
+            else:
+                keys = fallback_keys
+        for k in keys:
             m = patterns[k].match(line)
-            if not m is None:
+            if m is not None:
                 matched_re_pattern = True
                 if k in accumulate_table:
                     accumulate_table[k][1].append(to_num(m.group(1)))
@@ -332,7 +507,7 @@ def xs_get_stats(stat_file: str, targets: list,
         commitInstr_count += int(matched_commit_line)
         if not matched_re_pattern:
             for lv in caches:
-                mshr_latency = eval(f'mshr_latency_{lv}')
+                mshr_latency = mshr_tables[lv]
                 matched, bank, mshr_id, bucket, count = xs_get_mshr_latency(line, lv)
                 if matched:
                     total_match += 1
@@ -463,30 +638,32 @@ def gem5_get_stats(stat_file: str, targets: list,
         print(stat_file)
     assert(os.path.isfile(expu(stat_file)))
 
-    # Check if both warmup and main simulation completed
-    with open(expu(stat_file)) as f:
-        stat_blocks = f.read().count('---------- Begin Simulation Statistics ----------')
-    if stat_blocks < 2:
-        print(f"warning: in {stat_file} found {stat_blocks} stat block(s), expected 2 (warmup + main)")
-        return None
-
-    patterns = {}
-
     assert re_targets
-    for meta, regex in targets.items():
-        patterns[meta] = re.compile(regex+'\s+(\d+\.?\d*)\s+')
-
     if not all_chunks:
-        lines = get_raw_stats_around(stat_file, insts)
+        lines, stat_blocks = get_last_complete_stats_dump(stat_file)
+        if stat_blocks < 2:
+            print(f"warning: in {stat_file} found {stat_blocks} stat block(s), expected 2 (warmup + main)")
+            return None
+
+        patterns, name_index, fallback_keys = _compile_gem5_targets(targets)
         stats = {}
 
         # sim_time = get_host_seconds(stat_file)
         # stats['time'] = sim_time
 
         for line in lines:
-            for k in patterns:
+            parts = line.split(None, 1)
+            if not parts:
+                continue
+            keys = _gem5_keys_for_stat_name(parts[0], name_index)
+            if fallback_keys:
+                if keys:
+                    keys = list(keys) + fallback_keys
+                else:
+                    keys = fallback_keys
+            for k in keys:
                 m = patterns[k].search(line)
-                if not m is None:
+                if m is not None:
                     stats[k] = to_num(m.group(1))
         # KISS: common aliases expected by legacy post-processing / scripts.
         if 'Insts' not in stats and 'committedInsts' in stats:
@@ -508,6 +685,7 @@ def gem5_get_stats(stat_file: str, targets: list,
         return stats
     else:
         assert config_file is not None
+        patterns, name_index, fallback_keys = _compile_gem5_targets(targets)
         chunks = get_all_chunks(stat_file, config_file, insts_from_dir)
         chunk_stats = {}
         for insts, chunk in chunks.items():
@@ -516,10 +694,20 @@ def gem5_get_stats(stat_file: str, targets: list,
             meta_pattern = re.compile('.*\((\w.+)\).*')
 
             for line in chunk:
-                for k in patterns:
+                parts = line.split(None, 1)
+                keys = _gem5_keys_for_stat_name(parts[0], name_index) if parts else ()
+                if fallback_keys:
+                    if keys:
+                        keys = list(keys) + fallback_keys
+                    else:
+                        keys = fallback_keys
+                for k in keys:
                     m = patterns[k].search(line)
-                    if not m is None:
-                        chunk_stats[insts][m.group(1)] = to_num(m.group(2))
+                    if m is not None:
+                        if m.lastindex and m.lastindex >= 2:
+                            chunk_stats[insts][m.group(1)] = to_num(m.group(2))
+                        else:
+                            chunk_stats[insts][k] = to_num(m.group(1))
         return chunk_stats
 
 
