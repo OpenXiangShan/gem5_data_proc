@@ -255,6 +255,9 @@ def main():
             for point, weight in wl_dict['points'].items():
                 possible_paths.add('{}_{}'.format(workload, point))
                 possible_paths.add('{}_{}_{}'.format(workload, point, weight))
+                # CI directory names round weights to six decimal places;
+                # profile JSONs may retain more precision or omit trailing zeros.
+                possible_paths.add(f'{workload}_{point}_{float(weight):.6f}')
 
     def keep_path(workload, path):
         if opt.filter_bmk and not workload.startswith(opt.filter_bmk):
