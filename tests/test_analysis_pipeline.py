@@ -6,6 +6,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+
+import analysis_pipeline
 
 from analysis_inputs import filter_profile_paths, rtl_window, selected_logs
 
@@ -68,6 +71,41 @@ class PipelineTests(unittest.TestCase):
                                 env={**os.environ, 'OPENBLAS_NUM_THREADS': '1', 'PYTHONDONTWRITEBYTECODE': '1'},
                                 timeout=60)
         self.assertEqual(result.returncode, 0, result.stdout[-2000:] + result.stderr[-3000:])
+
+    def test_point_query_reads_only_selected_raw_and_never_weights(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            snapshot = root / "snapshot"
+            (snapshot / "raw").mkdir(parents=True)
+            (snapshot / "manifest.json").write_text(json.dumps({"points": [
+                {"name": "gcc_1"}, {"name": "gcc_2"}, {"name": "mcf_1"}]}))
+            (snapshot / "points.csv").write_text(
+                ",bmk,workload,point,cpi\ngcc_1,gcc,gcc,1,1\n"
+                "gcc_2,gcc,gcc,2,2\nmcf_1,mcf,mcf,1,3\n")
+            (snapshot / "weighted.csv").write_text(",cpi\ngcc,1.75\nmcf,3\n")
+            with gzip.open(snapshot / "raw/gcc_1.json.gz", "wt") as stream:
+                json.dump({"counter": 0}, stream)
+            # Other slices must never be touched, even if their cache is invalid.
+            for name in ("gcc_2", "mcf_1"):
+                (snapshot / f"raw/{name}.json.gz").write_text("not gzip")
+            request = {"snapshots": [str(snapshot)], "level": "simpoint",
+                       "benchmarks": ["gcc"], "simpoints": ["gcc_1", "mcf_1"],
+                       "metrics": ["cpi", "raw:counter", "raw:absent"], "output": str(root)}
+            with patch.object(analysis_pipeline, "weight", side_effect=AssertionError("unexpected weighting")), \
+                    patch.object(gzip, "open", wraps=gzip.open) as opened:
+                analysis_pipeline.compare(request)
+                self.assertEqual(opened.call_count, 1)
+                self.assertEqual(opened.call_args.args[0], snapshot / "raw/gcc_1.json.gz")
+                result = json.loads((root / "values.json").read_text())[0]
+                self.assertEqual(len(result["simpoint"]), 1)
+                self.assertEqual(result["simpoint"][0]["raw:counter"], 0)
+                self.assertIsNone(result["simpoint"][0]["raw:absent"])
+                self.assertEqual(result["benchmark"][0]["cpi"], 1.75)
+                request["simpoints"] = ["not_found"]
+                opened.reset_mock()
+                analysis_pipeline.compare(request)
+                opened.assert_not_called()
+                self.assertEqual(json.loads((root / "values.json").read_text())[0]["simpoint"], [])
 
     def test_direct_cli_prepares_both_backends_and_queries_missing_raw(self):
         with tempfile.TemporaryDirectory() as temporary:
