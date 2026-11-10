@@ -90,7 +90,12 @@ python3 analysis_pipeline.py compare compare.json
 ```
 
 输出 `values.json`，按 snapshots 顺序包含 `benchmark` 和 `simpoint` 行，行标识为 `name`。
-YAML 指标使用别名，原始计数器使用 `raw:` 前缀。任意 raw 项仍交给现有加权器处理。
+YAML 指标使用别名，原始计数器使用 `raw:` 前缀。默认 raw 项仍交给现有加权器处理。
+
+只查询切片原始值时，传入 `"level": "simpoint"`，可同时传 `"benchmarks": ["gcc"]`、
+`"simpoints": ["gcc_123"]`（完整切片 name）。入口先筛选 points.csv，再只打开选中切片的
+raw gzip 缓存，不调用加权器。两种筛选同时提供时取交集；未匹配返回空切片行。
+此模式的 benchmark 行仅复用快照内已有加权表，不生成 raw 加权列，供调用方保留 benchmark 选择项。
 加权 IPC 为 `1 / weighted_CPI`；缺失和非有限值输出 JSON null，不补零。
 跨 RTL/GEM5 的同名 YAML 指标需要调用方提示口径差异；raw 名称不自动映射。
 该入口不按查询筛选重算套件分数，也不做 A/B 百分比、排序或分页。

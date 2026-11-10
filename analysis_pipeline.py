@@ -208,6 +208,7 @@ def compare(request):
     import pandas as pd
 
     metrics = request["metrics"]
+    point_query = request.get("level") == "simpoint"
     result = []
     for snapshot in request["snapshots"]:
         directory = Path(snapshot)
@@ -215,10 +216,18 @@ def compare(request):
         frame = pd.read_csv(directory / "points.csv", index_col=0)
         if "cpi" not in frame:
             frame["cpi"] = 1 / frame["ipc"].replace(0, float("nan"))
+        if point_query:
+            # Restrict before opening raw files; point values need no weighting.
+            if request.get("benchmarks"):
+                frame = frame[frame["bmk"].isin(request["benchmarks"])]
+            if request.get("simpoints"):
+                frame = frame[frame.index.isin(request["simpoints"])]
         raw_metrics = [m for m in metrics if m.startswith("raw:")]
         if raw_metrics:
             values = {}
             for point in manifest["points"]:
+                if point["name"] not in frame.index:
+                    continue
                 with gzip.open(directory / "raw" / f'{point["name"]}.json.gz', "rt") as stream:
                     raw = json.load(stream)
                 values[point["name"]] = {m: raw.get(m[4:]) for m in raw_metrics}
@@ -226,10 +235,11 @@ def compare(request):
             frame = pd.concat([frame, raw_frame.reindex(frame.index)], axis=1).copy()
         chosen = [m for m in metrics if m in frame and m != "ipc"]
         subset = frame[list(dict.fromkeys(["bmk", "workload", "point", "cpi", *chosen]))].copy()
-        # Feed arbitrary raw counters through the same weighting implementation.
+        # Benchmark raw queries reuse the existing weighting implementation.
+        # Point queries only need cached benchmark metadata for the caller's picker.
         out = Path(request["output"]) / str(len(result))
         out.mkdir(parents=True, exist_ok=True)
-        if raw_metrics:
+        if raw_metrics and not point_query:
             subset.to_csv(out / "points.csv")
             weight(Path(__file__).resolve().parent, out / "points.csv", directory / "cluster.json",
                    out / "weighted.csv", manifest["spec"])
